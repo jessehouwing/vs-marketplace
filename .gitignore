@@ -38,5 +38,9 @@ npm-debug.log*
 .cache/
 .temp/
 
-# Tools
+# Tools (except core package vswhere.exe which is committed)
 tools/
+packages/azdo-task/tools/
+packages/github-action/tools/
+!packages/core/tools/
+!packages/core/tools/vswhere.exe
