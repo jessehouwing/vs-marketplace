@@ -61,17 +61,24 @@ async function bundle() {
         "tls",
         "crypto",
         "zlib",
+        "module",
         // Azure Pipelines libraries (must be available at runtime)
         ...(isAzdo
           ? [
               "azure-pipelines-task-lib",
               "azure-pipelines-task-lib/task",
+              "azure-pipelines-task-lib/task.js",
               "azure-pipelines-task-lib/toolrunner",
               "azure-pipelines-tasks-azure-arm-rest/azure-arm-endpoint",
+              "azure-pipelines-tasks-azure-arm-rest/azure-arm-endpoint.js",
+              "azure-pipelines-tasks-artifacts-common/EntraWifUserServiceConnectionUtils",
+              "azure-pipelines-tasks-artifacts-common/EntraWifUserServiceConnectionUtils.js",
             ]
           : []),
         // GitHub Actions libraries (must be available at runtime)
-        ...(!isAzdo ? ["@actions/core", "@actions/exec", "@actions/io"] : []),
+        ...(!isAzdo
+          ? ["@actions/core", "@actions/exec", "@actions/io", "@azure/identity"]
+          : []),
       ],
     });
 
