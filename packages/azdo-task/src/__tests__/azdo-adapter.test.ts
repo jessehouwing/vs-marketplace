@@ -211,9 +211,7 @@ describe("AzdoAdapter", () => {
     });
 
     it("should return false when file does not exist", () => {
-      (tl.exist as jest.MockedFunction<typeof tl.exist>).mockReturnValue(
-        false
-      );
+      (tl.exist as jest.MockedFunction<typeof tl.exist>).mockReturnValue(false);
 
       const result = adapter.fileExists("C:\\test\\missing.txt");
 

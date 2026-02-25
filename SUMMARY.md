@@ -37,12 +37,10 @@ Platform-agnostic publishing logic including:
 ## Key Features
 
 1. **Dual Authentication Support**
-
    - Personal Access Token (PAT)
    - Workload Identity Federation (OIDC) via Azure
 
 2. **Platform Consistency**
-
    - Same core logic for both GitHub Actions and Azure Pipelines
    - Consistent input/output interface
    - Shared authentication handling

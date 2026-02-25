@@ -86,11 +86,7 @@ export class MockPlatformAdapter implements IPlatformAdapter {
     return value;
   }
 
-  getPathInput(
-    name: string,
-    required: boolean,
-    checkExists: boolean
-  ): string {
+  getPathInput(name: string, required: boolean, checkExists: boolean): string {
     const value = this.getInput(name, required);
     if (!value) {
       throw new Error(`Required path input '${name}' was not supplied`);

@@ -48,25 +48,19 @@ describe("publishVsExtension", () => {
     expect(execCalls.length).toBeGreaterThanOrEqual(3);
 
     // Check login call
-    const loginCall = execCalls.find((call) =>
-      call.args.includes("login")
-    );
+    const loginCall = execCalls.find((call) => call.args.includes("login"));
     expect(loginCall).toBeDefined();
     expect(loginCall?.args).toContain("-personalAccessToken");
     expect(loginCall?.args).toContain("test-token-12345");
 
     // Check publish call
-    const publishCall = execCalls.find((call) =>
-      call.args.includes("publish")
-    );
+    const publishCall = execCalls.find((call) => call.args.includes("publish"));
     expect(publishCall).toBeDefined();
     expect(publishCall?.args).toContain("-payload");
     expect(publishCall?.args).toContain("C:\\extension.vsix");
 
     // Check logout call
-    const logoutCall = execCalls.find((call) =>
-      call.args.includes("logout")
-    );
+    const logoutCall = execCalls.find((call) => call.args.includes("logout"));
     expect(logoutCall).toBeDefined();
   });
 
@@ -172,9 +166,7 @@ describe("publishVsExtension", () => {
     await publishVsExtension(options, adapter);
 
     const execCalls = adapter.getExecCalls();
-    const publishCall = execCalls.find((call) =>
-      call.args.includes("publish")
-    );
+    const publishCall = execCalls.find((call) => call.args.includes("publish"));
 
     expect(publishCall?.args).toContain("-ignoreWarnings");
     expect(publishCall?.args).toContain("Warning01,Warning02");
