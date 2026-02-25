@@ -1,6 +1,6 @@
 import { AuthCredentials, IPlatformAdapter } from "@vs-marketplace/core";
 
-export type ConnectionType = "PAT" | "WorkloadIdentity" | "AzureRM" | "Basic";
+export type ConnectionType = "PAT" | "WorkloadIdentity" | "AzureRM";
 
 /**
  * Get authentication credentials based on connection type
@@ -29,14 +29,9 @@ export async function getAuth(
       return getAzureRmAuth(connectionName, platform);
     }
 
-    case "basic": {
-      const { getBasicAuth } = await import("./basic-auth.js");
-      return getBasicAuth(connectionName, platform);
-    }
-
     default:
       throw new Error(
-        `Unsupported connection type: ${String(connectionType)}. Expected one of: PAT, WorkloadIdentity, AzureRM, Basic`
+        `Unsupported connection type: ${String(connectionType)}. Expected one of: PAT, WorkloadIdentity, AzureRM`
       );
   }
 }
@@ -48,14 +43,6 @@ export async function getAzureRmAuth(
   const { getAzureRmAuth: getAzureRmAuthImpl } =
     await import("./azurerm-auth.js");
   return getAzureRmAuthImpl(connectionName, platform);
-}
-
-export async function getBasicAuth(
-  connectionName: string,
-  platform: IPlatformAdapter
-): Promise<AuthCredentials> {
-  const { getBasicAuth: getBasicAuthImpl } = await import("./basic-auth.js");
-  return getBasicAuthImpl(connectionName, platform);
 }
 
 export async function getPatAuth(

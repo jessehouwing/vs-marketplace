@@ -24,12 +24,11 @@
       "label": "Connection Type",
       "required": true,
       "defaultValue": "PAT",
-      "helpMarkDown": "**Authentication method** for Visual Studio Marketplace operations:\n\n- **PAT**: Use Personal Access Token (recommended for most users)\n- **WorkloadIdentity**: Use workload identity federation (no secrets needed, requires service connection)\n- **AzureRM**: Use Azure Resource Manager with OIDC (no secrets needed, requires Azure RM service connection)\n- **Basic**: Use username/password authentication (for specific scenarios)",
+      "helpMarkDown": "**Authentication method** for Visual Studio Marketplace operations:\n\n- **PAT**: Use Personal Access Token (recommended for most users)\n- **WorkloadIdentity**: Use workload identity federation (no secrets needed, requires service connection)\n- **AzureRM**: Use Azure Resource Manager with OIDC (no secrets needed, requires Azure RM service connection)",
       "options": {
         "PAT": "Visual Studio Marketplace (PAT)",
         "WorkloadIdentity": "Visual Studio Marketplace (WorkloadIdentity)",
-        "AzureRM": "Azure Resource Manager (OIDC)",
-        "Basic": "Visual Studio Marketplace (Basic Auth)"
+        "AzureRM": "Azure Resource Manager (OIDC)"
       }
     },
     {
@@ -55,14 +54,6 @@
       "required": true,
       "helpMarkDown": "**Azure Resource Manager service connection** using workload identity federation (OIDC).\n\n**Benefits**: No secrets or PAT tokens needed - uses federated Azure credentials\n\n**Required**: Connection must have access to Visual Studio Marketplace scope (`499b84ac-1321-427f-aa17-267ca6975798`)",
       "visibleRule": "connectionType = AzureRM"
-    },
-    {
-      "name": "connectionNameBasic",
-      "type": "connectedService:VsMarketplaceBasic",
-      "label": "Basic Connection",
-      "required": true,
-      "helpMarkDown": "**Basic service connection** for basic authentication (username/password).\n\n**Note**: Use PAT authentication for most scenarios as it's more secure.",
-      "visibleRule": "connectionType = Basic"
     },
     {
       "name": "vsixFile",

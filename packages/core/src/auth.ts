@@ -7,15 +7,11 @@
  */
 export interface AuthCredentials {
   /** Type of authentication */
-  authType: "pat" | "basic";
+  authType: "pat";
   /** Service URL (marketplace URL) */
   serviceUrl: string;
-  /** Personal Access Token (for PAT auth) */
-  token?: string;
-  /** Username (for basic auth) */
-  username?: string;
-  /** Password (for basic auth) */
-  password?: string;
+  /** Personal Access Token */
+  token: string;
 }
 
 /**

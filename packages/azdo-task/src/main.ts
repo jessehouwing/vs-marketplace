@@ -23,8 +23,6 @@ async function run(): Promise<void> {
       connectionName = adapter.getInput("connectionNameWorkloadIdentity", true);
     } else if (normalizedConnectionType === "azurerm") {
       connectionName = adapter.getInput("connectionNameAzureRM", true);
-    } else if (normalizedConnectionType === "basic") {
-      connectionName = adapter.getInput("connectionNameBasic", true);
     }
 
     if (!connectionName) {
