@@ -6,6 +6,7 @@ const config: Config = {
   extensionsToTreatAsEsm: [".ts"],
   moduleNameMapper: {
     "^(\\.{1,2}/.*)\\.js$": "$1",
+    "^@vs-marketplace/core$": "<rootDir>/packages/core/src/index.ts",
   },
   transform: {
     "^.+\\.tsx?$": [

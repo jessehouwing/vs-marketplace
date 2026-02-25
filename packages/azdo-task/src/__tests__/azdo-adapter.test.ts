@@ -30,7 +30,8 @@ const mockTaskLib = {
 
 jest.mock("azure-pipelines-task-lib/task.js", () => mockTaskLib);
 
-import * as tl from "azure-pipelines-task-lib/task.js";
+// Use mockTaskLib directly instead of importing
+const tl = mockTaskLib;
 
 describe("AzdoAdapter", () => {
   let adapter: AzdoAdapter;
@@ -42,9 +43,7 @@ describe("AzdoAdapter", () => {
 
   describe("getInput", () => {
     it("should get input value when present", () => {
-      (tl.getInput as jest.MockedFunction<typeof tl.getInput>).mockReturnValue(
-        "test-value"
-      );
+      tl.getInput.mockReturnValue("test-value");
 
       const result = adapter.getInput("testInput", false);
 
@@ -53,9 +52,7 @@ describe("AzdoAdapter", () => {
     });
 
     it("should return undefined when input is null", () => {
-      (tl.getInput as jest.MockedFunction<typeof tl.getInput>).mockReturnValue(
-        null as unknown as string
-      );
+      tl.getInput.mockReturnValue(null as unknown as string);
 
       const result = adapter.getInput("testInput", false);
 
@@ -63,9 +60,7 @@ describe("AzdoAdapter", () => {
     });
 
     it("should handle required inputs", () => {
-      (tl.getInput as jest.MockedFunction<typeof tl.getInput>).mockReturnValue(
-        "required-value"
-      );
+      tl.getInput.mockReturnValue("required-value");
 
       const result = adapter.getInput("requiredInput", true);
 
@@ -76,9 +71,7 @@ describe("AzdoAdapter", () => {
 
   describe("getPathInput", () => {
     it("should get path input", () => {
-      (
-        tl.getPathInput as jest.MockedFunction<typeof tl.getPathInput>
-      ).mockReturnValue("C:\\path\\to\\file");
+      tl.getPathInput.mockReturnValue("C:\\path\\to\\file");
 
       const result = adapter.getPathInput("pathInput", true, true);
 
@@ -87,9 +80,7 @@ describe("AzdoAdapter", () => {
     });
 
     it("should throw error when path input is null", () => {
-      (
-        tl.getPathInput as jest.MockedFunction<typeof tl.getPathInput>
-      ).mockReturnValue(null as unknown as string);
+      tl.getPathInput.mockReturnValue(null as unknown as string);
 
       expect(() => adapter.getPathInput("pathInput", true, true)).toThrow(
         "Required path input 'pathInput' was not supplied"
@@ -140,9 +131,7 @@ describe("AzdoAdapter", () => {
         arg: jest.fn().mockReturnThis(),
         exec: jest.fn<() => Promise<number>>().mockResolvedValue(0),
       };
-      (tl.tool as jest.MockedFunction<typeof tl.tool>).mockReturnValue(
-        localMockTool as never
-      );
+      tl.tool.mockReturnValue(localMockTool as never);
 
       const result = await adapter.exec("command", ["arg1", "arg2"]);
 
@@ -158,9 +147,7 @@ describe("AzdoAdapter", () => {
         arg: jest.fn().mockReturnThis(),
         exec: jest.fn<() => Promise<number>>().mockResolvedValue(0),
       };
-      (tl.tool as jest.MockedFunction<typeof tl.tool>).mockReturnValue(
-        localMockTool as never
-      );
+      tl.tool.mockReturnValue(localMockTool as never);
 
       await adapter.exec("command", [], {
         failOnStdErr: true,
@@ -178,7 +165,7 @@ describe("AzdoAdapter", () => {
 
   describe("execSync", () => {
     it("should execute command synchronously", () => {
-      const mockTool = {
+      const localMockTool = {
         arg: jest.fn().mockReturnThis(),
         execSync: jest.fn().mockReturnValue({
           code: 0,
@@ -186,15 +173,13 @@ describe("AzdoAdapter", () => {
           stderr: "",
         }),
       };
-      (tl.tool as jest.MockedFunction<typeof tl.tool>).mockReturnValue(
-        mockTool as never
-      );
+      tl.tool.mockReturnValue(localMockTool as never);
 
       const result = adapter.execSync("command", ["arg1"]);
 
       expect(tl.tool).toHaveBeenCalledWith("command");
-      expect(mockTool.arg).toHaveBeenCalledWith("arg1");
-      expect(mockTool.execSync).toHaveBeenCalled();
+      expect(localMockTool.arg).toHaveBeenCalledWith("arg1");
+      expect(localMockTool.execSync).toHaveBeenCalled();
       expect(result.code).toBe(0);
       expect(result.stdout).toBe("test output");
     });
@@ -202,7 +187,7 @@ describe("AzdoAdapter", () => {
 
   describe("fileExists", () => {
     it("should check if file exists", () => {
-      (tl.exist as jest.MockedFunction<typeof tl.exist>).mockReturnValue(true);
+      tl.exist.mockReturnValue(true);
 
       const result = adapter.fileExists("C:\\test\\file.txt");
 
@@ -211,7 +196,7 @@ describe("AzdoAdapter", () => {
     });
 
     it("should return false when file does not exist", () => {
-      (tl.exist as jest.MockedFunction<typeof tl.exist>).mockReturnValue(false);
+      tl.exist.mockReturnValue(false);
 
       const result = adapter.fileExists("C:\\test\\missing.txt");
 
