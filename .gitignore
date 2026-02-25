@@ -10,6 +10,10 @@ dist/
 !eslint.config.mjs
 !Scripts/**/*.mjs
 
+# Build info
+*.tsbuildinfo
+.rollup.cache/
+
 # Test outputs
 coverage/
 .nyc_output/
