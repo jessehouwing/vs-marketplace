@@ -1,11 +1,14 @@
 import * as core from "@actions/core";
 import * as exec from "@actions/exec";
+import { createRequire } from "module";
 import {
   IPlatformAdapter,
   ExecOptions,
   ExecResult,
   TaskResult,
 } from "@vs-marketplace/core";
+
+const require = createRequire(import.meta.url);
 
 export class GitHubAdapter implements IPlatformAdapter {
   getInput(name: string, required: boolean): string | undefined {
@@ -59,7 +62,6 @@ export class GitHubAdapter implements IPlatformAdapter {
   execSync(command: string, args: string[], options?: ExecOptions): ExecResult {
     // GitHub Actions doesn't have a built-in sync exec
     // We'll use child_process for this
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { execFileSync } = require("child_process");
 
     try {
@@ -89,7 +91,6 @@ export class GitHubAdapter implements IPlatformAdapter {
   }
 
   fileExists(path: string): boolean {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const fs = require("fs");
     return fs.existsSync(path);
   }
