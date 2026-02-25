@@ -20,11 +20,15 @@ async function run(): Promise<void> {
       if (!connectedService) {
         throw new Error("connectedServiceName is required");
       }
-      token = tl.getEndpointAuthorizationParameter(
+      const authToken = tl.getEndpointAuthorizationParameter(
         connectedService,
         "password",
         true
       );
+      if (!authToken) {
+        throw new Error("Could not retrieve authentication token");
+      }
+      token = authToken;
     } else {
       // OIDC / Azure RM authentication
       const connectedService = tl.getInput("connectedServiceNameAzureRM", true);
@@ -32,10 +36,13 @@ async function run(): Promise<void> {
         throw new Error("connectedServiceNameAzureRM is required");
       }
 
-      const endpoint = await new AzureRMEndpoint(connectedService).getEndpoint();
+      const endpoint = await new AzureRMEndpoint(
+        connectedService
+      ).getEndpoint();
 
       // Override the Active Directory resource ID for VS Marketplace
       // This is the Visual Studio Marketplace resource ID
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (endpoint.applicationTokenCredentials as any).activeDirectoryResourceId =
         "499b84ac-1321-427f-aa17-267ca6975798";
 

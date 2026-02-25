@@ -39,6 +39,10 @@ async function bundle() {
             : "./packages/github-action/tsconfig.json",
           declaration: false,
           declarationMap: false,
+          compilerOptions: {
+            module: "ESNext",
+            moduleResolution: "bundler",
+          },
         }),
       ],
       external: [
@@ -75,6 +79,7 @@ async function bundle() {
       file: outputFile,
       format: "esm",
       sourcemap: true,
+      inlineDynamicImports: true,
     });
 
     console.log(`✓ Bundle created: ${outputFile}`);

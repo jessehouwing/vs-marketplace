@@ -33,7 +33,9 @@ async function run(): Promise<void> {
     const vsixFile = core.getInput("vsix-file", { required: true });
     const manifestFile = core.getInput("manifest-file", { required: true });
     const publisherId = core.getInput("publisher-id", { required: true });
-    const ignoreWarnings = core.getInput("ignore-warnings", { required: false });
+    const ignoreWarnings = core.getInput("ignore-warnings", {
+      required: false,
+    });
 
     const options: PublishOptions = {
       connectTo: authType === "pat" ? "pat" : "oidc",

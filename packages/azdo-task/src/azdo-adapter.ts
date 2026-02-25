@@ -12,11 +12,7 @@ export class AzdoAdapter implements IPlatformAdapter {
     return value ?? undefined;
   }
 
-  getPathInput(
-    name: string,
-    required: boolean,
-    checkExists: boolean
-  ): string {
+  getPathInput(name: string, required: boolean, checkExists: boolean): string {
     const value = tl.getPathInput(name, required, checkExists);
     if (!value) {
       throw new Error(`Required path input '${name}' was not supplied`);
@@ -54,6 +50,7 @@ export class AzdoAdapter implements IPlatformAdapter {
       failOnStdErr: options?.failOnStdErr,
       cwd: options?.cwd,
       silent: options?.silent,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
   }
 
@@ -67,6 +64,7 @@ export class AzdoAdapter implements IPlatformAdapter {
       failOnStdErr: options?.failOnStdErr,
       cwd: options?.cwd,
       silent: options?.silent,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
 
     return {

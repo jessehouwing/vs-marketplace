@@ -61,7 +61,8 @@ export class VsixPublisher {
    */
   private findVswhere(): string | null {
     // Common vswhere locations
-    const programFiles = process.env["ProgramFiles(x86)"] || "C:\\Program Files (x86)";
+    const programFiles =
+      process.env["ProgramFiles(x86)"] || "C:\\Program Files (x86)";
     const vswherePath = `${programFiles}\\Microsoft Visual Studio\\Installer\\vswhere.exe`;
 
     if (this.adapter.fileExists(vswherePath)) {
@@ -139,9 +140,7 @@ export class VsixPublisher {
     manifestPath: string,
     warningsToIgnore?: string
   ): Promise<void> {
-    this.adapter.info(
-      `Publishing '${vsixPath}' to Visual Studio Marketplace`
-    );
+    this.adapter.info(`Publishing '${vsixPath}' to Visual Studio Marketplace`);
 
     const vsixPublisher = this.getVsixPublisherExe();
     const args = [
@@ -195,10 +194,7 @@ export async function publishVsExtension(
       options.ignoreWarnings
     );
 
-    adapter.setResult(
-      0,
-      "Visual Studio extension published successfully"
-    );
+    adapter.setResult(0, "Visual Studio extension published successfully");
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     adapter.error(message);

@@ -10,8 +10,8 @@
   },
   "dependencies": {
     "@vs-marketplace/core": "^1.0.0",
-    "azure-pipelines-task-lib": "^4.18.0",
-    "azure-pipelines-tasks-azure-arm-rest": "^0.2.3"
+    "azure-pipelines-task-lib": "^4.17.3",
+    "azure-pipelines-tasks-azure-arm-rest": "^3.271.0"
   },
   "devDependencies": {
     "@types/node": "^24.10.13",

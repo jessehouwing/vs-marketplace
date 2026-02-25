@@ -1,6 +1,5 @@
 import * as core from "@actions/core";
 import * as exec from "@actions/exec";
-import * as io from "@actions/io";
 import {
   IPlatformAdapter,
   ExecOptions,
@@ -14,11 +13,7 @@ export class GitHubAdapter implements IPlatformAdapter {
     return value || undefined;
   }
 
-  getPathInput(
-    name: string,
-    required: boolean,
-    checkExists: boolean
-  ): string {
+  getPathInput(name: string, required: boolean, checkExists: boolean): string {
     const value = core.getInput(name, { required });
     if (!value) {
       throw new Error(`Required input '${name}' was not supplied`);
@@ -64,6 +59,7 @@ export class GitHubAdapter implements IPlatformAdapter {
   execSync(command: string, args: string[], options?: ExecOptions): ExecResult {
     // GitHub Actions doesn't have a built-in sync exec
     // We'll use child_process for this
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { execFileSync } = require("child_process");
 
     try {
@@ -77,16 +73,23 @@ export class GitHubAdapter implements IPlatformAdapter {
         stdout: stdout as string,
         stderr: "",
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as {
+        status?: number;
+        stdout?: string;
+        stderr?: string;
+        message?: string;
+      };
       return {
-        code: error.status || 1,
-        stdout: error.stdout || "",
-        stderr: error.stderr || error.message || "",
+        code: err.status || 1,
+        stdout: err.stdout || "",
+        stderr: err.stderr || err.message || "",
       };
     }
   }
 
   fileExists(path: string): boolean {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const fs = require("fs");
     return fs.existsSync(path);
   }
