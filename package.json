@@ -19,7 +19,8 @@
   ],
   "scripts": {
     "initdev": "npm install --no-progress --force --no-update-notifier --legacy-peer-deps --no-fund",
-    "build": "npm run build --workspaces --if-present",
+    "download:vswhere": "node Scripts/download-vswhere.mjs",
+    "build": "npm run download:vswhere && npm run build --workspaces --if-present",
     "build:clean": "npm run clean && npm run initdev && npm run build",
     "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --no-coverage",
     "test:coverage": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --coverage",

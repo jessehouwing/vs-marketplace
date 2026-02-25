@@ -1,4 +1,6 @@
 import { IPlatformAdapter } from "./platform-adapter.js";
+import path from "path";
+import { fileURLToPath } from "url";
 
 export interface PublishOptions {
   connectTo: "pat" | "oidc";
@@ -60,11 +62,23 @@ export class VsixPublisher {
    * Find vswhere.exe in common locations
    */
   private findVswhere(): string | null {
-    // Common vswhere locations
+    // Try bundled vswhere.exe first (from tools directory)
+    // This works because the tools directory is alongside the dist folder
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
+    const bundledVswhere = path.join(__dirname, 'tools', 'vswhere.exe');
+    
+    this.adapter.debug(`Checking for bundled vswhere at: ${bundledVswhere}`);
+    if (this.adapter.fileExists(bundledVswhere)) {
+      this.adapter.debug(`Using bundled vswhere.exe`);
+      return bundledVswhere;
+    }
+    
+    // Fallback: Common vswhere locations in Visual Studio installation
     const programFiles =
       process.env["ProgramFiles(x86)"] || "C:\\Program Files (x86)";
     const vswherePath = `${programFiles}\\Microsoft Visual Studio\\Installer\\vswhere.exe`;
 
+    this.adapter.debug(`Checking for system vswhere at: ${vswherePath}`);
     if (this.adapter.fileExists(vswherePath)) {
       return vswherePath;
     }

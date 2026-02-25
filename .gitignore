@@ -36,3 +36,7 @@ npm-debug.log*
 # Temporary files
 *.tmp
 .cache/
+.temp/
+
+# Tools
+tools/
