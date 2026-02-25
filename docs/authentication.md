@@ -15,7 +15,7 @@ The simplest method for authentication. You'll need to:
 **GitHub Actions:**
 
 ```yaml
-- uses: jessehouwing/vs-marketplace@v1
+- uses: jessehouwing/vs-marketplace@v6
   with:
     auth-type: pat
     token: ${{ secrets.VS_MARKETPLACE_TOKEN }}
@@ -27,10 +27,10 @@ The simplest method for authentication. You'll need to:
 Create a service connection of type "Visual Studio Marketplace" and use:
 
 ```yaml
-- task: PublishVisualStudioExtension@1
+- task: vs-marketplace@6
   inputs:
-    connectTo: "VsTeam"
-    connectedServiceName: "Visual Studio Marketplace"
+    connectionType: "PAT"
+    connectionNamePAT: "Visual Studio Marketplace"
     # ... other inputs
 ```
 

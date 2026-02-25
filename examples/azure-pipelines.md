@@ -20,11 +20,11 @@ steps:
       solution: "**/*.sln"
       configuration: "Release"
 
-  - task: PublishVisualStudioExtension@1
+  - task: vs-marketplace@6
     displayName: "Publish to VS Marketplace"
     inputs:
-      connectTo: "VsTeam"
-      connectedServiceName: "Visual Studio Marketplace"
+      connectionType: "PAT"
+      connectionNamePAT: "Visual Studio Marketplace"
       vsixFile: "$(Build.SourcesDirectory)/output/MyExtension.vsix"
       manifestFile: "$(Build.SourcesDirectory)/publishManifest.json"
       publisherId: "my-publisher"
@@ -50,11 +50,11 @@ steps:
       solution: "**/*.sln"
       configuration: "Release"
 
-  - task: PublishVisualStudioExtension@1
+  - task: vs-marketplace@6
     displayName: "Publish to VS Marketplace"
     inputs:
-      connectTo: "AzureRM"
-      connectedServiceNameAzureRM: "Visual Studio Marketplace (OIDC)"
+      connectionType: "AzureRM"
+      connectionNameAzureRM: "Visual Studio Marketplace (OIDC)"
       vsixFile: "$(Build.SourcesDirectory)/output/MyExtension.vsix"
       manifestFile: "$(Build.SourcesDirectory)/publishManifest.json"
       publisherId: "my-publisher"
@@ -65,11 +65,11 @@ steps:
 If you need to ignore specific warnings during validation:
 
 ```yaml
-- task: PublishVisualStudioExtension@1
+- task: vs-marketplace@6
   displayName: "Publish to VS Marketplace"
   inputs:
-    connectTo: "VsTeam"
-    connectedServiceName: "Visual Studio Marketplace"
+    connectionType: "PAT"
+    connectionNamePAT: "Visual Studio Marketplace"
     vsixFile: "$(Build.SourcesDirectory)/output/MyExtension.vsix"
     manifestFile: "$(Build.SourcesDirectory)/publishManifest.json"
     publisherId: "my-publisher"

@@ -26,7 +26,7 @@ jobs:
           # This should produce a .vsix file
 
       - name: Publish to Visual Studio Marketplace
-        uses: jessehouwing/vs-marketplace@v1
+        uses: jessehouwing/vs-marketplace@v6
         with:
           auth-type: pat
           token: ${{ secrets.VS_MARKETPLACE_TOKEN }}
@@ -71,7 +71,7 @@ jobs:
           # Your build steps here
 
       - name: Publish to Visual Studio Marketplace
-        uses: jessehouwing/vs-marketplace@v1
+        uses: jessehouwing/vs-marketplace@v6
         with:
           auth-type: oidc
           vsix-file: output/MyExtension.vsix
@@ -85,7 +85,7 @@ If you need to ignore specific warnings during validation:
 
 ```yaml
 - name: Publish to Visual Studio Marketplace
-  uses: jessehouwing/vs-marketplace@v1
+  uses: jessehouwing/vs-marketplace@v6
   with:
     auth-type: pat
     token: ${{ secrets.VS_MARKETPLACE_TOKEN }}

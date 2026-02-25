@@ -1,14 +1,14 @@
 {
   "id": "17654839-813a-4e5f-a724-223a68ec647c",
-  "name": "PublishVisualStudioExtension",
-  "friendlyName": "Publish Visual Studio Extension",
+  "name": "vs-marketplace",
+  "friendlyName": "VS Marketplace - Publish Extension",
   "description": "Publish Visual Studio extension to the Visual Studio Marketplace",
   "author": "Jesse Houwing",
   "helpMarkDown": "[More Information](https://github.com/jessehouwing/vs-marketplace)",
-  "preview": false,
+  "preview": true,
   "category": "Deploy",
   "version": {
-    "Major": 1,
+    "Major": 6,
     "Minor": 0,
     "Patch": 0
   },
