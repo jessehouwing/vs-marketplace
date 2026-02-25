@@ -1,0 +1,50 @@
+{
+  "manifestVersion": 1,
+  "id": "vs-marketplace-tasks",
+  "name": "Visual Studio Marketplace Publishing",
+  "version": "1.0.0",
+  "publisher": "jessehouwing",
+  "targets": [
+    {
+      "id": "Microsoft.VisualStudio.Services"
+    }
+  ],
+  "description": "Publish Visual Studio extensions to the Visual Studio Marketplace",
+  "categories": ["Azure Pipelines"],
+  "icons": {
+    "default": "packages/azdo-task/icon.png"
+  },
+  "files": [
+    {
+      "path": "packages/azdo-task/dist",
+      "addressable": true,
+      "packagePath": "dist"
+    },
+    {
+      "path": "packages/azdo-task/task.json",
+      "addressable": true
+    }
+  ],
+  "contributions": [
+    {
+      "id": "publish-vs-extension-task",
+      "type": "ms.vss-distributed-task.task",
+      "targets": ["ms.vss-distributed-task.tasks"],
+      "properties": {
+        "name": "packages/azdo-task"
+      }
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "uri": "https://github.com/jessehouwing/vs-marketplace"
+  },
+  "links": {
+    "getstarted": {
+      "uri": "https://github.com/jessehouwing/vs-marketplace"
+    },
+    "support": {
+      "uri": "https://github.com/jessehouwing/vs-marketplace/issues"
+    }
+  }
+}

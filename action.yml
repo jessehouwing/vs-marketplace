@@ -1,0 +1,37 @@
+name: "Publish Visual Studio Extension"
+description: "Publish Visual Studio extension to the Visual Studio Marketplace"
+author: "Jesse Houwing"
+
+branding:
+  icon: "upload-cloud"
+  color: "blue"
+
+inputs:
+  auth-type:
+    description: "Authentication type (pat or oidc)"
+    required: false
+    default: "pat"
+
+  token:
+    description: "Personal Access Token for Visual Studio Marketplace (required when auth-type is pat)"
+    required: false
+
+  vsix-file:
+    description: "Path to the VSIX file to publish"
+    required: true
+
+  manifest-file:
+    description: "Path to the publish manifest file"
+    required: true
+
+  publisher-id:
+    description: "Publisher ID for the extension"
+    required: true
+
+  ignore-warnings:
+    description: "Comma-separated list of warnings to ignore (e.g., VSIXValidatorWarning01,VSIXValidatorWarning02)"
+    required: false
+
+runs:
+  using: "node20"
+  main: "dist/main.js"
