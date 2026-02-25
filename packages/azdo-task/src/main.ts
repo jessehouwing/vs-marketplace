@@ -1,53 +1,38 @@
 import * as tl from "azure-pipelines-task-lib/task.js";
-import { AzureRMEndpoint } from "azure-pipelines-tasks-azure-arm-rest/azure-arm-endpoint.js";
 import { publishVsExtension, PublishOptions } from "@vs-marketplace/core";
 import { AzdoAdapter } from "./azdo-adapter.js";
+import { getAuth } from "./auth/index.js";
 
 async function run(): Promise<void> {
   const adapter = new AzdoAdapter();
 
   try {
     // Get authentication configuration
-    const connectTo = (tl.getInput("connectTo", false) ?? "AzureRM") as
-      | "VsTeam"
-      | "AzureRM";
-
-    let token: string;
-
-    if (connectTo === "VsTeam") {
-      // Personal Access Token authentication
-      const connectedService = tl.getInput("connectedServiceName", true);
-      if (!connectedService) {
-        throw new Error("connectedServiceName is required");
-      }
-      const authToken = tl.getEndpointAuthorizationParameter(
-        connectedService,
-        "password",
-        true
-      );
-      if (!authToken) {
-        throw new Error("Could not retrieve authentication token");
-      }
-      token = authToken;
-    } else {
-      // OIDC / Azure RM authentication
-      const connectedService = tl.getInput("connectedServiceNameAzureRM", true);
-      if (!connectedService) {
-        throw new Error("connectedServiceNameAzureRM is required");
-      }
-
-      const endpoint = await new AzureRMEndpoint(
-        connectedService
-      ).getEndpoint();
-
-      // Override the Active Directory resource ID for VS Marketplace
-      // This is the Visual Studio Marketplace resource ID
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (endpoint.applicationTokenCredentials as any).activeDirectoryResourceId =
-        "499b84ac-1321-427f-aa17-267ca6975798";
-
-      token = await endpoint.applicationTokenCredentials.getToken();
+    const connectionType = adapter.getInput("connectionType", true);
+    if (!connectionType) {
+      throw new Error("connectionType is required");
     }
+
+    const normalizedConnectionType = connectionType.trim().toLowerCase();
+
+    // Get the appropriate connection name based on type
+    let connectionName: string | undefined;
+    if (normalizedConnectionType === "pat") {
+      connectionName = adapter.getInput("connectionNamePAT", true);
+    } else if (normalizedConnectionType === "workloadidentity") {
+      connectionName = adapter.getInput("connectionNameWorkloadIdentity", true);
+    } else if (normalizedConnectionType === "azurerm") {
+      connectionName = adapter.getInput("connectionNameAzureRM", true);
+    } else if (normalizedConnectionType === "basic") {
+      connectionName = adapter.getInput("connectionNameBasic", true);
+    }
+
+    if (!connectionName) {
+      throw new Error("Service connection name is required");
+    }
+
+    // Get authentication credentials using the new auth system
+    const auth = await getAuth(connectionType, connectionName, adapter);
 
     // Get task inputs
     const vsixFile = tl.getPathInput("vsixFile", true, true);
@@ -55,13 +40,13 @@ async function run(): Promise<void> {
     const publisherId = tl.getInput("publisherId", true);
     const ignoreWarnings = tl.getInput("ignoreWarnings", false);
 
-    if (!vsixFile || !manifestFile || !publisherId) {
+    if (!vsixFile || !manifestFile || !publisherId || !auth.token) {
       throw new Error("Required inputs are missing");
     }
 
     const options: PublishOptions = {
-      connectTo: connectTo === "VsTeam" ? "pat" : "oidc",
-      token,
+      connectTo: "pat", // All auth methods return a token that works like PAT
+      token: auth.token,
       vsixFile,
       manifestFile,
       publisherId,

@@ -7,16 +7,18 @@
 **Location:** `packages/core/src/__tests__/`
 
 #### 1. Mock Platform Adapter (`mock-platform-adapter.ts`)
+
 - Comprehensive mock implementation of `IPlatformAdapter`
 - Tracks all interactions (inputs, secrets, logs, exec calls)
 - Configurable responses for testing different scenarios
 - Used across all core package tests
 
 #### 2. VsixPublisher Tests (`publisher.test.ts`) - 11 tests
+
 - ✅ Login functionality with valid credentials
 - ✅ Login failure handling
 - ✅ VsixPublisher.exe path resolution via vswhere
-- ✅ Error handling when vswhere fails  
+- ✅ Error handling when vswhere fails
 - ✅ Error handling when VsixPublisher.exe not found
 - ✅ Logout after successful login
 - ✅ Skip logout when not logged in
@@ -26,6 +28,7 @@
 - ✅ Publish failure handling
 
 #### 3. publishVsExtension Tests (`publish-vs-extension.test.ts`) - 11 tests
+
 - ✅ Token masking as secret
 - ✅ Complete publish workflow (login → publish → logout)
 - ✅ Success result on completion
@@ -83,24 +86,28 @@ export interface IAuthProvider {
 **Location:** `packages/azdo-task/src/auth/`
 
 #### 1. PAT Authentication (`pat-auth.ts`)
+
 - Retrieves Personal Access Token from service connection
 - Supports `apitoken` or `password` parameters
 - Automatically masks token in logs
 - Returns token-based credentials for marketplace
 
 #### 2. Basic Authentication (`basic-auth.ts`)
+
 - Retrieves username/password from service connection
 - Validates both credentials exist
 - Masks password in logs
 - Returns basic auth credentials
 
 #### 3. Workload Identity (`workloadidentity-auth.ts`)
+
 - Uses `getFederatedWorkloadIdentityCredentials` from azure-pipelines-tasks-artifacts-common
 - Obtains federated credentials via Entra ID
 - Returns as PAT-style token for marketplace
 - Graceful error handling
 
 #### 4. Azure RM/OIDC (`azurerm-auth.ts`)
+
 - Uses `AzureRMEndpoint` to get Azure credentials
 - Overrides Active Directory resource ID to VS Marketplace ID: `499b84ac-1321-427f-aa17-267ca6975798`
 - Gets token via applicationTokenCredentials
@@ -108,6 +115,7 @@ export interface IAuthProvider {
 - Comprehensive error wrapping
 
 #### 5. Auth Router (`index.ts`)
+
 - Central `getAuth()` function routes to appropriate auth method
 - Case-insensitive connection type matching
 - Dynamic imports for lazy loading
@@ -135,12 +143,14 @@ Tests:       15 failed, 30 passed, 45 total
 ```
 
 ### Passing (30 tests):
+
 - Core: VsixPublisher (11/11) ✅
-- Core: publishVsExtension (11/11) ✅  
+- Core: publishVsExtension (11/11) ✅
 - GitHub Action: GitHubAdapter (7/7) ✅
 - Azure Pipelines: AzdoAdapter (0/15) ⚠️
 
 ### Known Issues:
+
 - AzdoAdapter tests failing due to Jest ESM mocking limitations with azure-pipelines-task-lib
 - Requires refactoring to either:
   - Use integration tests instead of unit tests with mocks
@@ -159,6 +169,7 @@ Tests:       15 failed, 30 passed, 45 total
 ## Files Modified/Created
 
 ### New Files (19):
+
 - `packages/core/src/auth.ts`
 - `packages/core/src/__tests__/mock-platform-adapter.ts`
 - `packages/core/src/__tests__/publisher.test.ts`
@@ -172,6 +183,7 @@ Tests:       15 failed, 30 passed, 45 total
 - `packages/github-action/src/__tests__/github-adapter.test.ts`
 
 ### Modified Files (3):
+
 - `packages/core/src/index.ts` - Export auth
 - `packages/azdo-task/package.json` - Add dependencies
 - `packages/github-action/src/github-adapter.ts` - Add createRequire for ESM compat
@@ -180,7 +192,7 @@ Tests:       15 failed, 30 passed, 45 total
 
 1. **Separation of Concerns** - Auth logic isolated from publishing logic
 2. **Extensibility** - Easy to add new auth methods
-3. **Platform Agnostic** - Core remains independent of platform specifics  
+3. **Platform Agnostic** - Core remains independent of platform specifics
 4. **Security** - Automatic secret masking in all auth methods
 5. **Error Handling** - Clear, wrapped errors with context
 6. **Type Safety** - Full TypeScript coverage with interfaces
@@ -188,6 +200,7 @@ Tests:       15 failed, 30 passed, 45 total
 ## Alignment with azdo-marketplace
 
 Successfully mirrored the authentication architecture from `azdo-marketplace`:
+
 - ✅ Same auth interface structure
 - ✅ Same file organization
 - ✅ Same auth method implementations

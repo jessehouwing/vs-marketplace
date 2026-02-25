@@ -19,32 +19,50 @@
   "instanceNameFormat": "Publish Visual Studio Extension",
   "inputs": [
     {
-      "name": "connectTo",
-      "type": "radio",
-      "label": "Connect to",
+      "name": "connectionType",
+      "type": "pickList",
+      "label": "Connection Type",
       "required": true,
-      "defaultValue": "AzureRM",
-      "helpMarkDown": "Connect to Visual Studio Marketplace using personal access token or workload identity federation.",
+      "defaultValue": "PAT",
+      "helpMarkDown": "**Authentication method** for Visual Studio Marketplace operations:\n\n- **PAT**: Use Personal Access Token (recommended for most users)\n- **WorkloadIdentity**: Use workload identity federation (no secrets needed, requires service connection)\n- **AzureRM**: Use Azure Resource Manager with OIDC (no secrets needed, requires Azure RM service connection)\n- **Basic**: Use username/password authentication (for specific scenarios)",
       "options": {
-        "VsTeam": "Visual Studio Marketplace (personal access token)",
-        "AzureRM": "Visual Studio Marketplace (workload identity federation)"
+        "PAT": "Visual Studio Marketplace (PAT)",
+        "WorkloadIdentity": "Visual Studio Marketplace (WorkloadIdentity)",
+        "AzureRM": "Azure Resource Manager (OIDC)",
+        "Basic": "Visual Studio Marketplace (Basic Auth)"
       }
     },
     {
-      "name": "connectedServiceName",
-      "type": "connectedService:VstsMarketplacePublishing",
-      "label": "Visual Studio Marketplace (personal access token)",
+      "name": "connectionNamePAT",
+      "type": "connectedService:VsMarketplacePublishing",
+      "label": "Service Connection",
       "required": true,
-      "helpMarkDown": "Service endpoint connection to publish the extension.",
-      "visibleRule": "connectTo=VsTeam"
+      "helpMarkDown": "**Visual Studio Marketplace service connection** configured with a Personal Access Token (PAT).\n\n**Required scopes**: Marketplace (Publish)\n\nCreate a PAT at: https://dev.azure.com/_usersSettings/tokens",
+      "visibleRule": "connectionType = PAT"
     },
     {
-      "name": "connectedServiceNameAzureRM",
-      "type": "connectedService:AzureRM",
-      "label": "Visual Studio Marketplace (workload identity federation)",
+      "name": "connectionNameWorkloadIdentity",
+      "type": "connectedService:workloadidentityuser",
+      "label": "Visual Studio Marketplace Service Connection",
       "required": true,
-      "helpMarkDown": "Service endpoint connection to publish the extension.",
-      "visibleRule": "connectTo=AzureRM"
+      "helpMarkDown": "**Visual Studio Marketplace Workload Identity service connection** used to authenticate marketplace operations without PAT secrets.\n\nUse this connection when `connectionType = WorkloadIdentity` for federated authentication.",
+      "visibleRule": "connectionType = WorkloadIdentity"
+    },
+    {
+      "name": "connectionNameAzureRM",
+      "type": "connectedService:AzureRM",
+      "label": "Azure RM Connection",
+      "required": true,
+      "helpMarkDown": "**Azure Resource Manager service connection** using workload identity federation (OIDC).\n\n**Benefits**: No secrets or PAT tokens needed - uses federated Azure credentials\n\n**Required**: Connection must have access to Visual Studio Marketplace scope (`499b84ac-1321-427f-aa17-267ca6975798`)",
+      "visibleRule": "connectionType = AzureRM"
+    },
+    {
+      "name": "connectionNameBasic",
+      "type": "connectedService:VsMarketplaceBasic",
+      "label": "Basic Connection",
+      "required": true,
+      "helpMarkDown": "**Basic service connection** for basic authentication (username/password).\n\n**Note**: Use PAT authentication for most scenarios as it's more secure.",
+      "visibleRule": "connectionType = Basic"
     },
     {
       "name": "vsixFile",
