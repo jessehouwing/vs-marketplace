@@ -19,7 +19,7 @@ const targets = [
     packageDir: 'packages/azdo-task',
     entryPoint: 'packages/azdo-task/src/main.ts',
     outFile: 'packages/azdo-task/dist/bundle.js',
-    external: ['tfx-cli', 'msalv1', 'msalv2', 'msalv3', 'shelljs'],
+    external: ['msalv1', 'msalv2', 'msalv3', 'shelljs'],
     runtimeAliasDependencySourcePackage: 'azure-pipelines-tasks-azure-arm-rest',
     runtimeAliasDependencies: ['msalv1', 'msalv2', 'msalv3'],
     bundledModuleResourcePackages: [
@@ -32,6 +32,12 @@ const targets = [
       'packages/core/package.json',
       'package.json',
     ],
+    runtimeAssetCopies: [
+      {
+        from: 'packages/core/tools/vswhere.exe',
+        to: 'tools/vswhere.exe',
+      },
+    ],
     bundleFormat: 'cjs',
   },
   {
@@ -39,11 +45,17 @@ const targets = [
     packageDir: 'packages/github-action',
     entryPoint: 'packages/github-action/src/main.ts',
     outFile: 'packages/github-action/dist/bundle.js',
-    external: ['tfx-cli'],
+    external: [],
     manifestSources: [
       'packages/github-action/package.json',
       'packages/core/package.json',
       'package.json',
+    ],
+    runtimeAssetCopies: [
+      {
+        from: 'packages/core/tools/vswhere.exe',
+        to: 'tools/vswhere.exe',
+      },
     ],
     bundleFormat: 'esm',
   },

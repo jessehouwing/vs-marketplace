@@ -1,6 +1,6 @@
 import * as core from "@actions/core";
 import * as exec from "@actions/exec";
-import { createRequire } from "module";
+import { existsSync } from "fs";
 import {
   IPlatformAdapter,
   ExecOptions,
@@ -8,9 +8,19 @@ import {
   TaskResult,
 } from "@vs-marketplace/core";
 
-const require = createRequire(import.meta.url);
-
 export class GitHubAdapter implements IPlatformAdapter {
+  private quoteExecutablePath(command: string): string {
+    if (!/\s/.test(command)) {
+      return command;
+    }
+
+    if (command.startsWith('"') && command.endsWith('"')) {
+      return command;
+    }
+
+    return `"${command}"`;
+  }
+
   getInput(name: string, required: boolean): string | undefined {
     const value = core.getInput(name, { required });
     return value || undefined;
@@ -52,47 +62,41 @@ export class GitHubAdapter implements IPlatformAdapter {
     args: string[],
     options?: ExecOptions
   ): Promise<number> {
-    return await exec.exec(command, args, {
-      silent: options?.silent,
-      cwd: options?.cwd,
-      ignoreReturnCode: !options?.failOnStdErr,
-    });
+    const result = await this.execOutput(command, args, options);
+    return result.code;
   }
 
-  execSync(command: string, args: string[], options?: ExecOptions): ExecResult {
-    // GitHub Actions doesn't have a built-in sync exec
-    // We'll use child_process for this
-    const { execFileSync } = require("child_process");
+  async execOutput(
+    command: string,
+    args: string[],
+    options?: ExecOptions
+  ): Promise<ExecResult> {
+    // @actions/exec parses the command string, so unquoted Windows paths with
+    // spaces (e.g. C:\Program Files\...) can be split at whitespace.
+    const result = await exec.getExecOutput(this.quoteExecutablePath(command), args, {
+      silent: options?.silent,
+      cwd: options?.cwd,
+      ignoreReturnCode: true,
+      failOnStdErr: false
+    });
 
-    try {
-      const stdout = execFileSync(command, args, {
-        cwd: options?.cwd,
-        encoding: "utf8",
-      });
-
-      return {
-        code: 0,
-        stdout: stdout as string,
-        stderr: "",
-      };
-    } catch (error: unknown) {
-      const err = error as {
-        status?: number;
-        stdout?: string;
-        stderr?: string;
-        message?: string;
-      };
-      return {
-        code: err.status || 1,
-        stdout: err.stdout || "",
-        stderr: err.stderr || err.message || "",
-      };
+    if (options?.failOnStdErr && result.stderr.trim().length > 0) {
+      throw new Error(`Command wrote to stderr: ${result.stderr.trim()}`);
     }
+
+    if (result.exitCode !== 0 && !options?.ignoreReturnCode) {
+      throw new Error(`The process '${command}' failed with exit code ${result.exitCode}`);
+    }
+
+    return {
+      code: result.exitCode,
+      stdout: result.stdout,
+      stderr: result.stderr,
+    };
   }
 
   fileExists(path: string): boolean {
-    const fs = require("fs");
-    return fs.existsSync(path);
+    return existsSync(path);
   }
 
   setResult(result: TaskResult, message: string): void {

@@ -25,6 +25,49 @@ describe("AzdoAdapter", () => {
 
   afterEach(() => {
     consoleSpy.mockRestore();
+    process.exitCode = 0;
+  });
+
+  describe("integration: exec/execOutput options", () => {
+    it("exec should honor ignoreReturnCode for non-zero exits", async () => {
+      const code = await adapter.exec(
+        process.execPath,
+        ["-e", "process.exit(7)"],
+        { ignoreReturnCode: true, silent: true }
+      );
+
+      expect(code).toBe(7);
+    });
+
+    it("exec should fail when failOnStdErr is true", async () => {
+      await expect(
+        adapter.exec(
+          process.execPath,
+          ["-e", "console.error('stderr-output')"],
+          { failOnStdErr: true, silent: true }
+        )
+      ).rejects.toThrow();
+    });
+
+    it("execOutput should retain non-zero exit code when ignoreReturnCode is true", async () => {
+      const result = await adapter.execOutput(
+        process.execPath,
+        ["-e", "process.exit(7)"],
+        { ignoreReturnCode: true, silent: true }
+      );
+
+      expect(result.code).toBe(7);
+    });
+
+    it("execOutput should throw when failOnStdErr is true", async () => {
+      await expect(
+        adapter.execOutput(
+          process.execPath,
+          ["-e", "console.error('stderr-output')"],
+          { failOnStdErr: true, silent: true }
+        )
+      ).rejects.toThrow(/stderr-output/);
+    });
   });
 
   describe("info", () => {

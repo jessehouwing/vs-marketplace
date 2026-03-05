@@ -5,6 +5,7 @@ import { GitHubAdapter } from "./github-adapter.js";
 
 async function run(): Promise<void> {
   const adapter = new GitHubAdapter();
+  let publishInvoked = false;
 
   try {
     // Get authentication configuration
@@ -47,10 +48,14 @@ async function run(): Promise<void> {
     };
 
     // Publish the extension
+    publishInvoked = true;
     await publishVsExtension(options, adapter);
   } catch (error) {
+    if (publishInvoked) {
+      return;
+    }
+
     const message = error instanceof Error ? error.message : String(error);
-    adapter.error(message);
     adapter.setResult(1, message);
   }
 }

@@ -25,14 +25,14 @@ export class MockPlatformAdapter implements IPlatformAdapter {
     args: string[];
     options?: ExecOptions;
   }> = [];
-  private execSyncCalls: Array<{
+  private execOutputCalls: Array<{
     command: string;
     args: string[];
     options?: ExecOptions;
   }> = [];
   private fileExistsMap: Map<string, boolean> = new Map();
   private execMockResponse: number = 0;
-  private execSyncMockResponse: ExecResult = {
+  private execOutputMockResponse: ExecResult = {
     code: 0,
     stdout: "",
     stderr: "",
@@ -52,8 +52,8 @@ export class MockPlatformAdapter implements IPlatformAdapter {
     this.execMockResponse = exitCode;
   }
 
-  setExecSyncMockResponse(result: ExecResult): void {
-    this.execSyncMockResponse = result;
+  setExecOutputMockResponse(result: ExecResult): void {
+    this.execOutputMockResponse = result;
   }
 
   // Getters for assertions
@@ -69,8 +69,8 @@ export class MockPlatformAdapter implements IPlatformAdapter {
     return this.execCalls;
   }
 
-  getExecSyncCalls() {
-    return this.execSyncCalls;
+  getExecOutputCalls() {
+    return this.execOutputCalls;
   }
 
   getTaskResult() {
@@ -122,9 +122,13 @@ export class MockPlatformAdapter implements IPlatformAdapter {
     return this.execMockResponse;
   }
 
-  execSync(command: string, args: string[], options?: ExecOptions): ExecResult {
-    this.execSyncCalls.push({ command, args, options });
-    return this.execSyncMockResponse;
+  async execOutput(
+    command: string,
+    args: string[],
+    options?: ExecOptions
+  ): Promise<ExecResult> {
+    this.execOutputCalls.push({ command, args, options });
+    return this.execOutputMockResponse;
   }
 
   fileExists(path: string): boolean {

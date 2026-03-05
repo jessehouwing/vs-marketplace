@@ -1,4 +1,5 @@
 import * as tl from "azure-pipelines-task-lib/task.js";
+import { spawn } from "child_process";
 import {
   IPlatformAdapter,
   ExecOptions,
@@ -41,37 +42,65 @@ export class AzdoAdapter implements IPlatformAdapter {
     args: string[],
     options?: ExecOptions
   ): Promise<number> {
-    const tool = tl.tool(command);
-    for (const arg of args) {
-      tool.arg(arg);
-    }
-
-    return await tool.exec({
-      failOnStdErr: options?.failOnStdErr,
-      cwd: options?.cwd,
-      silent: options?.silent,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as any);
+    const result = await this.execOutput(command, args, options);
+    return result.code;
   }
 
-  execSync(command: string, args: string[], options?: ExecOptions): ExecResult {
-    const tool = tl.tool(command);
-    for (const arg of args) {
-      tool.arg(arg);
-    }
+  async execOutput(
+    command: string,
+    args: string[],
+    options?: ExecOptions
+  ): Promise<ExecResult> {
+    return await new Promise<ExecResult>((resolve, reject) => {
+      const child = spawn(command, args, {
+        cwd: options?.cwd,
+        shell: false,
+        windowsHide: true,
+      });
 
-    const result = tool.execSync({
-      failOnStdErr: options?.failOnStdErr,
-      cwd: options?.cwd,
-      silent: options?.silent,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as any);
+      let stdout = "";
+      let stderr = "";
 
-    return {
-      code: result.code,
-      stdout: result.stdout,
-      stderr: result.stderr,
-    };
+      child.stdout.on("data", (data: Buffer) => {
+        const text = data.toString();
+        stdout += text;
+        if (!options?.silent) {
+          process.stdout.write(text);
+        }
+      });
+
+      child.stderr.on("data", (data: Buffer) => {
+        const text = data.toString();
+        stderr += text;
+        if (!options?.silent) {
+          process.stderr.write(text);
+        }
+      });
+
+      child.on("error", (error) => {
+        reject(error);
+      });
+
+      child.on("close", (exitCode) => {
+        const code = typeof exitCode === "number" ? exitCode : 1;
+
+        if (options?.failOnStdErr && stderr.trim().length > 0) {
+          reject(new Error(`Command wrote to stderr: ${stderr.trim()}`));
+          return;
+        }
+
+        if (code !== 0 && !options?.ignoreReturnCode) {
+          reject(new Error(`The process '${command}' failed with exit code ${code}`));
+          return;
+        }
+
+        resolve({
+          code,
+          stdout,
+          stderr,
+        });
+      });
+    });
   }
 
   fileExists(path: string): boolean {

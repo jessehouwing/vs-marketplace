@@ -20,7 +20,7 @@ export class VsixPublisher {
   /**
    * Find VsixPublisher.exe using vswhere
    */
-  private getVsixPublisherExe(): string {
+  private async getVsixPublisherExe(): Promise<string> {
     if (this.vsixPublisherPath) {
       return this.vsixPublisherPath;
     }
@@ -34,15 +34,22 @@ export class VsixPublisher {
       );
     }
 
-    const result = this.adapter.execSync(vswherePath, [
-      "-version",
-      "[15.0,)",
-      "-latest",
-      "-requires",
-      "Microsoft.VisualStudio.Component.VSSDK",
-      "-find",
-      "VSSDK\\VisualStudioIntegration\\Tools\\Bin\\VsixPublisher.exe",
-    ]);
+    const result = await this.adapter.execOutput(
+      vswherePath,
+      [
+        "-version",
+        "[15.0,)",
+        "-latest",
+        "-requires",
+        "Microsoft.VisualStudio.Component.VSSDK",
+        "-find",
+        "VSSDK\\VisualStudioIntegration\\Tools\\Bin\\VsixPublisher.exe",
+      ],
+      {
+        failOnStdErr: false,
+        ignoreReturnCode: true,
+      }
+    );
 
     if (result.code === 0 && result.stdout) {
       const vsixPublisherExe = result.stdout.trim();
@@ -62,10 +69,12 @@ export class VsixPublisher {
    * Find vswhere.exe in common locations
    */
   private findVswhere(): string | null {
-    // Try bundled vswhere.exe first (from tools directory)
-    // This works because the tools directory is alongside the dist folder
-    const __dirname = path.dirname(fileURLToPath(import.meta.url));
-    const bundledVswhere = path.join(__dirname, "tools", "vswhere.exe");
+    // Prefer vswhere bundled alongside the runtime entrypoint (dist/bundle.js).
+    const bundlePath = process.argv[1]
+      ? path.resolve(process.argv[1])
+      : fileURLToPath(import.meta.url);
+    const bundleDir = path.dirname(bundlePath);
+    const bundledVswhere = path.join(bundleDir, "tools", "vswhere.exe");
 
     this.adapter.debug(`Checking for bundled vswhere at: ${bundledVswhere}`);
     if (this.adapter.fileExists(bundledVswhere)) {
@@ -94,7 +103,7 @@ export class VsixPublisher {
   async login(publisherId: string, token: string): Promise<void> {
     this.adapter.info(`Logging in as '${publisherId}'`);
 
-    const vsixPublisher = this.getVsixPublisherExe();
+    const vsixPublisher = await this.getVsixPublisherExe();
     const args = [
       "login",
       "-personalAccessToken",
@@ -126,7 +135,7 @@ export class VsixPublisher {
 
     this.adapter.info(`Logging out publisher '${publisherId}'`);
 
-    const vsixPublisher = this.getVsixPublisherExe();
+    const vsixPublisher = await this.getVsixPublisherExe();
     const args = [
       "logout",
       "-publisherName",
@@ -134,12 +143,33 @@ export class VsixPublisher {
       "-ignoreMissingPublisher",
     ];
 
-    const exitCode = await this.adapter.exec(vsixPublisher, args, {
-      failOnStdErr: true,
+    const result = await this.adapter.execOutput(vsixPublisher, args, {
+      failOnStdErr: false,
+      ignoreReturnCode: true,
     });
 
-    if (exitCode !== 0) {
-      throw new Error("Logout failed.");
+    if (result.code !== 0) {
+      if (result.code === 31) {
+        this.adapter.debug(
+          "Logout returned exit code 31 (already logged out); treating as success."
+        );
+        this.loggedIn = false;
+        this.adapter.info("Already logged out.");
+        return;
+      }
+
+      const combinedOutput = `${result.stdout || ""}\n${result.stderr || ""}`.toLowerCase();
+      const alreadyLoggedOut = combinedOutput.includes("already logged out");
+      if (alreadyLoggedOut) {
+        this.adapter.debug(
+          `Logout returned exit code ${result.code} with 'already logged out' message; treating as success.`
+        );
+        this.loggedIn = false;
+        this.adapter.info("Already logged out.");
+        return;
+      }
+
+      throw new Error(`Logout failed (exit code ${result.code}).`);
     }
 
     this.loggedIn = false;
@@ -156,7 +186,7 @@ export class VsixPublisher {
   ): Promise<void> {
     this.adapter.info(`Publishing '${vsixPath}' to Visual Studio Marketplace`);
 
-    const vsixPublisher = this.getVsixPublisherExe();
+    const vsixPublisher = await this.getVsixPublisherExe();
     const args = [
       "publish",
       "-payload",
@@ -211,7 +241,6 @@ export async function publishVsExtension(
     adapter.setResult(0, "Visual Studio extension published successfully");
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    adapter.error(message);
     adapter.setResult(1, message);
     throw error;
   } finally {

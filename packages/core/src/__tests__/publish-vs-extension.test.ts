@@ -16,7 +16,7 @@ describe("publishVsExtension", () => {
       true
     );
     adapter.setFileExists("C:\\VS\\VsixPublisher.exe", true);
-    adapter.setExecSyncMockResponse({
+    adapter.setExecOutputMockResponse({
       code: 0,
       stdout: "C:\\VS\\VsixPublisher.exe",
       stderr: "",
@@ -43,9 +43,11 @@ describe("publishVsExtension", () => {
     await publishVsExtension(options, adapter);
 
     const execCalls = adapter.getExecCalls();
+    const execOutputCalls = adapter.getExecOutputCalls();
 
-    // Should have login, publish, and logout calls
-    expect(execCalls.length).toBeGreaterThanOrEqual(3);
+    // Login and publish are async exec calls; vswhere lookup and logout use execOutput.
+    expect(execCalls.length).toBeGreaterThanOrEqual(2);
+    expect(execOutputCalls.length).toBeGreaterThanOrEqual(2);
 
     // Check login call
     const loginCall = execCalls.find((call) => call.args.includes("login"));
@@ -60,7 +62,7 @@ describe("publishVsExtension", () => {
     expect(publishCall?.args).toContain("C:\\extension.vsix");
 
     // Check logout call
-    const logoutCall = execCalls.find((call) => call.args.includes("logout"));
+    const logoutCall = execOutputCalls.find((call) => call.args.includes("logout"));
     expect(logoutCall).toBeDefined();
   });
 
@@ -94,7 +96,7 @@ describe("publishVsExtension", () => {
     expect(result?.message).toBe("Login failed.");
 
     const logs = adapter.getLogs();
-    expect(logs.error).toContain("Login failed.");
+    expect(logs.error).not.toContain("Login failed.");
   });
 
   it("should handle publish errors and set failure result", async () => {
@@ -139,14 +141,18 @@ describe("publishVsExtension", () => {
   });
 
   it("should not fail if logout throws an error", async () => {
-    let callCount = 0;
-    adapter.exec = async (command, args) => {
-      callCount++;
-      if (callCount === 3) {
-        // Fail on logout
-        return 1;
+    adapter.setExecMockResponse(0);
+    const originalExecOutput = adapter.execOutput.bind(adapter);
+    adapter.execOutput = async (command, args, options) => {
+      if (args.includes("logout")) {
+        return {
+          code: 1,
+          stdout: "",
+          stderr: "logout failed",
+        };
       }
-      return 0;
+
+      return originalExecOutput(command, args, options);
     };
 
     // Should complete successfully despite logout error
@@ -177,7 +183,7 @@ describe("publishVsExtension", () => {
       "C:\\Program Files (x86)\\Microsoft Visual Studio\\Installer\\vswhere.exe",
       false
     );
-    adapter.setExecSyncMockResponse({
+    adapter.setExecOutputMockResponse({
       code: 1,
       stdout: "",
       stderr: "",
@@ -186,13 +192,12 @@ describe("publishVsExtension", () => {
     await expect(publishVsExtension(options, adapter)).rejects.toThrow();
 
     const logs = adapter.getLogs();
-    expect(logs.error.length).toBeGreaterThan(0);
+    expect(logs.error.length).toBe(0);
   });
 
   it("should handle non-Error thrown values", async () => {
-    // Mock execSync to throw a non-Error value during VsixPublisher.exe lookup
-    const originalExecSync = adapter.execSync.bind(adapter);
-    adapter.execSync = () => {
+    // Mock execOutput to throw a non-Error value during VsixPublisher.exe lookup
+    adapter.execOutput = async () => {
       throw "String error"; // eslint-disable-line @typescript-eslint/only-throw-error
     };
 

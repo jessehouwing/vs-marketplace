@@ -5,6 +5,7 @@ import { getAuth } from "./auth/index.js";
 
 async function run(): Promise<void> {
   const adapter = new AzdoAdapter();
+  let publishInvoked = false;
 
   try {
     // Get authentication configuration
@@ -52,8 +53,13 @@ async function run(): Promise<void> {
     };
 
     // Publish the extension
+    publishInvoked = true;
     await publishVsExtension(options, adapter);
   } catch (error) {
+    if (publishInvoked) {
+      return;
+    }
+
     const message = error instanceof Error ? error.message : String(error);
     adapter.error(message);
     adapter.setResult(1, message);

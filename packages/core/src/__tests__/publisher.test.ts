@@ -16,7 +16,7 @@ describe("VsixPublisher", () => {
       true
     );
     adapter.setFileExists("C:\\VS\\VsixPublisher.exe", true);
-    adapter.setExecSyncMockResponse({
+    adapter.setExecOutputMockResponse({
       code: 0,
       stdout: "C:\\VS\\VsixPublisher.exe",
       stderr: "",
@@ -59,12 +59,12 @@ describe("VsixPublisher", () => {
 
       await publisher.login("test-publisher", "test-token");
 
-      const execSyncCalls = adapter.getExecSyncCalls();
-      expect(execSyncCalls).toHaveLength(1);
-      expect(execSyncCalls[0].command).toBe(
+      const execOutputCalls = adapter.getExecOutputCalls();
+      expect(execOutputCalls).toHaveLength(1);
+      expect(execOutputCalls[0].command).toBe(
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Installer\\vswhere.exe"
       );
-      expect(execSyncCalls[0].args).toEqual([
+      expect(execOutputCalls[0].args).toEqual([
         "-version",
         "[15.0,)",
         "-latest",
@@ -80,7 +80,7 @@ describe("VsixPublisher", () => {
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Installer\\vswhere.exe",
         false
       );
-      adapter.setExecSyncMockResponse({
+      adapter.setExecOutputMockResponse({
         code: 1,
         stdout: "",
         stderr: "not found",
@@ -95,7 +95,7 @@ describe("VsixPublisher", () => {
 
     it("should throw error when VsixPublisher.exe is not found", async () => {
       adapter.setFileExists("C:\\VS\\VsixPublisher.exe", false);
-      adapter.setExecSyncMockResponse({
+      adapter.setExecOutputMockResponse({
         code: 0,
         stdout: "C:\\VS\\VsixPublisher.exe",
         stderr: "",
@@ -114,18 +114,24 @@ describe("VsixPublisher", () => {
       // Login first
       await publisher.login("test-publisher", "test-token");
 
-      // Clear previous exec calls
-      const execCallsBefore = adapter.getExecCalls().length;
+      // Clear baseline sync call count (login resolves VsixPublisher via vswhere)
+      const execOutputCallsBefore = adapter.getExecOutputCalls().length;
+
+      adapter.setExecOutputMockResponse({
+        code: 0,
+        stdout: "",
+        stderr: "",
+      });
 
       // Logout
       await publisher.logout("test-publisher");
 
-      const execCalls = adapter.getExecCalls();
-      expect(execCalls).toHaveLength(execCallsBefore + 1);
-      expect(execCalls[execCallsBefore].command).toBe(
+      const execOutputCalls = adapter.getExecOutputCalls();
+      expect(execOutputCalls).toHaveLength(execOutputCallsBefore + 1);
+      expect(execOutputCalls[execOutputCallsBefore].command).toBe(
         "C:\\VS\\VsixPublisher.exe"
       );
-      expect(execCalls[execCallsBefore].args).toEqual([
+      expect(execOutputCalls[execOutputCallsBefore].args).toEqual([
         "logout",
         "-publisherName",
         "test-publisher",
@@ -149,10 +155,52 @@ describe("VsixPublisher", () => {
       adapter.setExecMockResponse(0);
       await publisher.login("test-publisher", "test-token");
 
-      adapter.setExecMockResponse(1);
+      adapter.setExecOutputMockResponse({
+        code: 1,
+        stdout: "",
+        stderr: "some unexpected failure",
+      });
 
       await expect(publisher.logout("test-publisher")).rejects.toThrow(
-        "Logout failed."
+        "Logout failed (exit code 1)."
+      );
+    });
+
+    it("should ignore non-zero logout when already logged out", async () => {
+      adapter.setExecMockResponse(0);
+      await publisher.login("test-publisher", "test-token");
+
+      adapter.setExecOutputMockResponse({
+        code: 1,
+        stdout: "",
+        stderr: "Already logged out.",
+      });
+
+      await expect(publisher.logout("test-publisher")).resolves.toBeUndefined();
+
+      const logs = adapter.getLogs();
+      expect(logs.info).toContain("Already logged out.");
+      expect(logs.debug).toContain(
+        "Logout returned exit code 1 with 'already logged out' message; treating as success."
+      );
+    });
+
+    it("should ignore logout exit code 31", async () => {
+      adapter.setExecMockResponse(0);
+      await publisher.login("test-publisher", "test-token");
+
+      adapter.setExecOutputMockResponse({
+        code: 31,
+        stdout: "",
+        stderr: "",
+      });
+
+      await expect(publisher.logout("test-publisher")).resolves.toBeUndefined();
+
+      const logs = adapter.getLogs();
+      expect(logs.info).toContain("Already logged out.");
+      expect(logs.debug).toContain(
+        "Logout returned exit code 31 (already logged out); treating as success."
       );
     });
   });
