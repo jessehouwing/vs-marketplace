@@ -9,9 +9,6 @@
     "build": "tsc",
     "clean": "rm -rf dist"
   },
-  "dependencies": {
-    "azure-devops-node-api": "^14.1.0"
-  },
   "devDependencies": {
     "@types/node": "^24.10.13",
     "typescript": "^5.9.3"
