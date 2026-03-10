@@ -1,0 +1,84 @@
+name: Publish extension to VS Marketplace
+
+on:
+  workflow_dispatch:
+    inputs:
+      extension_id:
+        description: Extension ID
+        required: true
+        default: vs-marketplace-extension
+      extension_version:
+        description: Version to publish (e.g., 6.0.1)
+        required: true
+
+permissions: {}
+
+env:
+  PUBLISHER_ID: jessehouwing
+
+jobs:
+  publish_oidc:
+    name: Publish (OIDC)
+    runs-on: windows-latest
+    environment:
+      name: publisher-jessehouwing
+      url: https://marketplace.visualstudio.com/items?itemName=${{env.PUBLISHER_ID}}.${{ inputs.extension_id }}
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #v6.0.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f #v6.3.0
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        shell: pwsh
+        run: |
+          $stopMarker = [guid]::NewGuid().ToString()
+          Write-Output "::stop-commands::$stopMarker"
+          npm run test
+          Write-Output "::$stopMarker::"
+
+      - name: Bundle
+        run: npm run bundle
+
+      - name: Package VSIX
+        id: package
+        shell: bash
+        run: |
+          npx tfx-cli extension create \
+            --manifest-globs vss-extension.json \
+            --output-path "${{ runner.temp }}" \
+            --override "{\"version\": \"${{ inputs.extension_version }}\", \"id\": \"${{ inputs.extension_id }}\"}"
+          vsix_path=$(find "${{ runner.temp }}" -name "*.vsix" | head -1)
+          echo "vsix-path=${vsix_path}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f #v7.0.0
+        with:
+          name: vsix-${{ inputs.extension_id }}-${{ inputs.extension_version }}
+          path: ${{ steps.package.outputs.vsix-path }}
+          if-no-files-found: error
+
+      - name: Publish from VSIX
+        uses: ./
+        with:
+          auth-type: oidc
+          vsix-file: ${{ steps.package.outputs.vsix-path }}
+          manifest-file: vss-extension.json
+          publisher-id: ${{ env.PUBLISHER_ID }}
