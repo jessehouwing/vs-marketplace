@@ -15,7 +15,7 @@
     "azure-pipelines-tasks-artifacts-common": "^2.270.0"
   },
   "devDependencies": {
-    "@types/node": "^24.10.13",
+    "@types/node": "^25.4.0",
     "typescript": "^5.9.3"
   }
 }
