@@ -97,6 +97,14 @@ npm run build        # Build all packages
 npm run bundle       # Bundle for distribution
 ```
 
+## Migration
+
+For migration guidance, see the guides in the `docs/` folder:
+
+- [Migrate from `PublishVisualStudioExtension@5` to Azure Pipelines (`vs-marketplace@6`)](./docs/migrate-from-publishvsextension-to-azure-pipelines.md)
+- [Migrate from `PublishVisualStudioExtension@5` to GitHub Actions (`jessehouwing/vs-marketplace@v6`)](./docs/migrate-from-publishvsextension-to-github-actions.md)
+- [Migrate from Azure Pipelines (`vs-marketplace@6`) to GitHub Actions (`jessehouwing/vs-marketplace@v6`)](./docs/migrate-from-azure-pipelines-to-github-actions.md)
+
 ## License
 
 MIT
