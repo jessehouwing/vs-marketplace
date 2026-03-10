@@ -52,11 +52,19 @@ export class VsixPublisher {
     );
 
     if (result.code === 0 && result.stdout) {
-      const vsixPublisherExe = result.stdout.trim();
-      if (this.adapter.fileExists(vsixPublisherExe)) {
-        this.adapter.debug(`VsixPublisher.exe found at: ${vsixPublisherExe}`);
-        this.vsixPublisherPath = vsixPublisherExe;
-        return vsixPublisherExe;
+      // vswhere -find can return multiple paths (one per line)
+      // Split by line breaks and pick the first existing path
+      const paths = result.stdout
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+
+      for (const vsixPublisherExe of paths) {
+        if (this.adapter.fileExists(vsixPublisherExe)) {
+          this.adapter.debug(`VsixPublisher.exe found at: ${vsixPublisherExe}`);
+          this.vsixPublisherPath = vsixPublisherExe;
+          return vsixPublisherExe;
+        }
       }
     }
 
