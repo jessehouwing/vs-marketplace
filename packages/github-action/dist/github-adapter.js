@@ -1,7 +1,7 @@
-import * as core from "@actions/core";
-import * as exec from "@actions/exec";
-import { existsSync } from "fs";
-import { TaskResult, } from "@vs-marketplace/core";
+import * as core from '@actions/core';
+import * as exec from '@actions/exec';
+import { existsSync } from 'fs';
+import { TaskResult } from '@vs-marketplace/core';
 export class GitHubAdapter {
     quoteExecutablePath(command) {
         if (!/\s/.test(command)) {
