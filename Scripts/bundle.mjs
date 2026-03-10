@@ -439,10 +439,10 @@ async function copyBundledModuleResources(target) {
 
 function runCommand(command, args, cwd) {
   return new Promise((resolve, reject) => {
-    const child = spawn(`${command} ${args.join(" ")}`, {
+    const child = spawn(command, args, {
       cwd,
       stdio: "inherit",
-      shell: true,
+      shell: false,
     });
 
     child.on("error", reject);
