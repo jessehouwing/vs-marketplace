@@ -7,7 +7,7 @@
  */
 export interface AuthCredentials {
   /** Type of authentication */
-  authType: "pat";
+  authType: 'pat';
   /** Service URL (marketplace URL) */
   serviceUrl: string;
   /** Personal Access Token */

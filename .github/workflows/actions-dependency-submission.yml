@@ -6,7 +6,7 @@ on:
       - main
   pull_request:
   schedule:
-    - cron: "38 4 * * *"
+    - cron: '38 4 * * *'
 
 permissions: {}
 

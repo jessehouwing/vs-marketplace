@@ -14,14 +14,14 @@ extension) to the `jessehouwing/vs-marketplace@v6` GitHub Actions action.
 
 ## Input mapping
 
-| `PublishVisualStudioExtension@5` input | `jessehouwing/vs-marketplace@v6` input | Notes |
-| -------------------------------------- | --------------------------------------- | ----- |
-| `connectTo: VsTeam` + `connectedServiceName` | `auth-type: pat` + `token` | Extract PAT from service connection and store as GitHub secret |
-| `connectTo: AzureRM` + `connectedServiceNameAzureRM` | `auth-type: oidc` | Use `azure/login@v2` step before this action |
-| `vsixFile` | `vsix-file` | Renamed with kebab-case |
-| `manifestFile` | `manifest-file` | Renamed with kebab-case |
-| `publisherId` | `publisher-id` | Renamed with kebab-case |
-| `ignoreWarnings` | `ignore-warnings` | Renamed with kebab-case |
+| `PublishVisualStudioExtension@5` input               | `jessehouwing/vs-marketplace@v6` input | Notes                                                          |
+| ---------------------------------------------------- | -------------------------------------- | -------------------------------------------------------------- |
+| `connectTo: VsTeam` + `connectedServiceName`         | `auth-type: pat` + `token`             | Extract PAT from service connection and store as GitHub secret |
+| `connectTo: AzureRM` + `connectedServiceNameAzureRM` | `auth-type: oidc`                      | Use `azure/login@v2` step before this action                   |
+| `vsixFile`                                           | `vsix-file`                            | Renamed with kebab-case                                        |
+| `manifestFile`                                       | `manifest-file`                        | Renamed with kebab-case                                        |
+| `publisherId`                                        | `publisher-id`                         | Renamed with kebab-case                                        |
+| `ignoreWarnings`                                     | `ignore-warnings`                      | Renamed with kebab-case                                        |
 
 ## Authentication migration
 
@@ -69,24 +69,24 @@ trigger:
       - v*
 
 pool:
-  vmImage: "windows-latest"
+  vmImage: 'windows-latest'
 
 steps:
   - task: VSBuild@1
-    displayName: "Build Extension"
+    displayName: 'Build Extension'
     inputs:
-      solution: "**/*.sln"
-      configuration: "Release"
+      solution: '**/*.sln'
+      configuration: 'Release'
 
   - task: PublishVisualStudioExtension@5
-    displayName: "Publish to VS Marketplace"
+    displayName: 'Publish to VS Marketplace'
     inputs:
       connectTo: VsTeam
-      connectedServiceName: "My Marketplace Connection"
-      vsixFile: "$(Build.SourcesDirectory)/output/MyExtension.vsix"
-      manifestFile: "$(Build.SourcesDirectory)/publishManifest.json"
-      publisherId: "my-publisher"
-      ignoreWarnings: "VSIXValidatorWarning01"
+      connectedServiceName: 'My Marketplace Connection'
+      vsixFile: '$(Build.SourcesDirectory)/output/MyExtension.vsix'
+      manifestFile: '$(Build.SourcesDirectory)/publishManifest.json'
+      publisherId: 'my-publisher'
+      ignoreWarnings: 'VSIXValidatorWarning01'
 ```
 
 ### After (`jessehouwing/vs-marketplace@v6` with PAT)
@@ -98,7 +98,7 @@ name: Publish VS Extension
 on:
   push:
     tags:
-      - "v*"
+      - 'v*'
 
 jobs:
   publish:
@@ -126,17 +126,17 @@ jobs:
 ```yaml
 # azure-pipelines.yml
 pool:
-  vmImage: "windows-latest"
+  vmImage: 'windows-latest'
 
 steps:
   - task: PublishVisualStudioExtension@5
-    displayName: "Publish to VS Marketplace"
+    displayName: 'Publish to VS Marketplace'
     inputs:
       connectTo: AzureRM
-      connectedServiceNameAzureRM: "My Azure RM Connection"
-      vsixFile: "$(Build.SourcesDirectory)/output/MyExtension.vsix"
-      manifestFile: "$(Build.SourcesDirectory)/publishManifest.json"
-      publisherId: "my-publisher"
+      connectedServiceNameAzureRM: 'My Azure RM Connection'
+      vsixFile: '$(Build.SourcesDirectory)/output/MyExtension.vsix'
+      manifestFile: '$(Build.SourcesDirectory)/publishManifest.json'
+      publisherId: 'my-publisher'
 ```
 
 ### After (`jessehouwing/vs-marketplace@v6` with OIDC)
@@ -148,7 +148,7 @@ name: Publish VS Extension (OIDC)
 on:
   push:
     tags:
-      - "v*"
+      - 'v*'
 
 permissions:
   id-token: write

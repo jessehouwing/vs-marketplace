@@ -13,15 +13,15 @@ This guide helps you migrate from the `vs-marketplace@6` Azure Pipelines task to
 
 ## Input mapping
 
-| `vs-marketplace@6` input | `jessehouwing/vs-marketplace@v6` input | Notes |
-| ------------------------ | --------------------------------------- | ----- |
-| `connectionType: PAT` + `connectionNamePAT` | `auth-type: pat` + `token` | Extract PAT from service connection and store as GitHub secret |
-| `connectionType: WorkloadIdentity` + `connectionNameWorkloadIdentity` | `auth-type: oidc` | Use `azure/login@v2` step before this action |
-| `connectionType: AzureRM` + `connectionNameAzureRM` | `auth-type: oidc` | Use `azure/login@v2` step before this action |
-| `vsixFile` | `vsix-file` | Renamed with kebab-case |
-| `manifestFile` | `manifest-file` | Renamed with kebab-case |
-| `publisherId` | `publisher-id` | Renamed with kebab-case |
-| `ignoreWarnings` | `ignore-warnings` | Renamed with kebab-case |
+| `vs-marketplace@6` input                                              | `jessehouwing/vs-marketplace@v6` input | Notes                                                          |
+| --------------------------------------------------------------------- | -------------------------------------- | -------------------------------------------------------------- |
+| `connectionType: PAT` + `connectionNamePAT`                           | `auth-type: pat` + `token`             | Extract PAT from service connection and store as GitHub secret |
+| `connectionType: WorkloadIdentity` + `connectionNameWorkloadIdentity` | `auth-type: oidc`                      | Use `azure/login@v2` step before this action                   |
+| `connectionType: AzureRM` + `connectionNameAzureRM`                   | `auth-type: oidc`                      | Use `azure/login@v2` step before this action                   |
+| `vsixFile`                                                            | `vsix-file`                            | Renamed with kebab-case                                        |
+| `manifestFile`                                                        | `manifest-file`                        | Renamed with kebab-case                                        |
+| `publisherId`                                                         | `publisher-id`                         | Renamed with kebab-case                                        |
+| `ignoreWarnings`                                                      | `ignore-warnings`                      | Renamed with kebab-case                                        |
 
 ## Authentication migration
 
@@ -72,24 +72,24 @@ trigger:
       - v*
 
 pool:
-  vmImage: "windows-latest"
+  vmImage: 'windows-latest'
 
 steps:
   - task: VSBuild@1
-    displayName: "Build Extension"
+    displayName: 'Build Extension'
     inputs:
-      solution: "**/*.sln"
-      configuration: "Release"
+      solution: '**/*.sln'
+      configuration: 'Release'
 
   - task: vs-marketplace@6
-    displayName: "Publish to VS Marketplace"
+    displayName: 'Publish to VS Marketplace'
     inputs:
-      connectionType: "PAT"
-      connectionNamePAT: "My Marketplace Connection"
-      vsixFile: "$(Build.SourcesDirectory)/output/MyExtension.vsix"
-      manifestFile: "$(Build.SourcesDirectory)/publishManifest.json"
-      publisherId: "my-publisher"
-      ignoreWarnings: "VSIXValidatorWarning01"
+      connectionType: 'PAT'
+      connectionNamePAT: 'My Marketplace Connection'
+      vsixFile: '$(Build.SourcesDirectory)/output/MyExtension.vsix'
+      manifestFile: '$(Build.SourcesDirectory)/publishManifest.json'
+      publisherId: 'my-publisher'
+      ignoreWarnings: 'VSIXValidatorWarning01'
 ```
 
 ### After (`jessehouwing/vs-marketplace@v6` with PAT)
@@ -101,7 +101,7 @@ name: Publish VS Extension
 on:
   push:
     tags:
-      - "v*"
+      - 'v*'
 
 jobs:
   publish:
@@ -129,17 +129,17 @@ jobs:
 ```yaml
 # azure-pipelines.yml
 pool:
-  vmImage: "windows-latest"
+  vmImage: 'windows-latest'
 
 steps:
   - task: vs-marketplace@6
-    displayName: "Publish to VS Marketplace"
+    displayName: 'Publish to VS Marketplace'
     inputs:
-      connectionType: "AzureRM"
-      connectionNameAzureRM: "My Azure RM Connection"
-      vsixFile: "$(Build.SourcesDirectory)/output/MyExtension.vsix"
-      manifestFile: "$(Build.SourcesDirectory)/publishManifest.json"
-      publisherId: "my-publisher"
+      connectionType: 'AzureRM'
+      connectionNameAzureRM: 'My Azure RM Connection'
+      vsixFile: '$(Build.SourcesDirectory)/output/MyExtension.vsix'
+      manifestFile: '$(Build.SourcesDirectory)/publishManifest.json'
+      publisherId: 'my-publisher'
 ```
 
 ### After (`jessehouwing/vs-marketplace@v6` with OIDC)
@@ -151,7 +151,7 @@ name: Publish VS Extension (OIDC)
 on:
   push:
     tags:
-      - "v*"
+      - 'v*'
 
 permissions:
   id-token: write

@@ -1,4 +1,4 @@
-import { AuthCredentials, IPlatformAdapter } from "@vs-marketplace/core";
+import { AuthCredentials, IPlatformAdapter } from '@vs-marketplace/core';
 
 /**
  * Get Workload Identity authentication from service connection.
@@ -11,7 +11,7 @@ export async function getWorkloadIdentityAuth(
   try {
     // Dynamic import to avoid dependency issues if the package is not available
     const { getFederatedWorkloadIdentityCredentials } =
-      await import("azure-pipelines-tasks-artifacts-common/EntraWifUserServiceConnectionUtils.js");
+      await import('azure-pipelines-tasks-artifacts-common/EntraWifUserServiceConnectionUtils.js');
 
     const token = await getFederatedWorkloadIdentityCredentials(connectionName);
 
@@ -24,15 +24,14 @@ export async function getWorkloadIdentityAuth(
     platform.setSecret(token);
 
     return {
-      authType: "pat",
-      serviceUrl: "https://marketplace.visualstudio.com",
+      authType: 'pat',
+      serviceUrl: 'https://marketplace.visualstudio.com',
       token,
     };
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    throw new Error(
-      `Failed to get workload identity authentication: ${errorMessage}`,
-      { cause: error }
-    );
+    throw new Error(`Failed to get workload identity authentication: ${errorMessage}`, {
+      cause: error,
+    });
   }
 }

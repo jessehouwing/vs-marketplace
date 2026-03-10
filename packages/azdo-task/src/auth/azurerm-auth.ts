@@ -1,5 +1,5 @@
-import { AzureRMEndpoint } from "azure-pipelines-tasks-azure-arm-rest/azure-arm-endpoint.js";
-import { AuthCredentials, IPlatformAdapter } from "@vs-marketplace/core";
+import { AzureRMEndpoint } from 'azure-pipelines-tasks-azure-arm-rest/azure-arm-endpoint.js';
+import { AuthCredentials, IPlatformAdapter } from '@vs-marketplace/core';
 
 /**
  * Get Azure RM authentication using workload identity federation (OIDC)
@@ -19,23 +19,23 @@ export async function getAzureRmAuth(
     // This is the Visual Studio Marketplace resource ID
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const creds = azureEndpoint.applicationTokenCredentials as any;
-    creds.activeDirectoryResourceId = "499b84ac-1321-427f-aa17-267ca6975798";
+    creds.activeDirectoryResourceId = '499b84ac-1321-427f-aa17-267ca6975798';
 
     // Get the token from the application token credentials
     const token = await azureEndpoint.applicationTokenCredentials.getToken();
 
     if (!token) {
-      throw new Error("Failed to get access token from Azure RM endpoint");
+      throw new Error('Failed to get access token from Azure RM endpoint');
     }
 
     // Mask the token immediately to prevent exposure in logs
     platform.setSecret(token);
 
     // For marketplace operations, use the marketplace URL
-    const serviceUrl = "https://marketplace.visualstudio.com";
+    const serviceUrl = 'https://marketplace.visualstudio.com';
 
     return {
-      authType: "pat",
+      authType: 'pat',
       serviceUrl,
       token: token,
     };

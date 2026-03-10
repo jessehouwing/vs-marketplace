@@ -40,12 +40,12 @@ This repository provides tools for publishing Visual Studio extensions to the Vi
 ```yaml
 - task: vs-marketplace@6
   inputs:
-    connectionType: "PAT"
-    connectionNamePAT: "Visual Studio Marketplace"
-    vsixFile: "path/to/extension.vsix"
-    manifestFile: "path/to/publishManifest.json"
-    publisherId: "my-publisher"
-    ignoreWarnings: "VSIXValidatorWarning01,VSIXValidatorWarning02"
+    connectionType: 'PAT'
+    connectionNamePAT: 'Visual Studio Marketplace'
+    vsixFile: 'path/to/extension.vsix'
+    manifestFile: 'path/to/publishManifest.json'
+    publisherId: 'my-publisher'
+    ignoreWarnings: 'VSIXValidatorWarning01,VSIXValidatorWarning02'
 ```
 
 ### Task Inputs

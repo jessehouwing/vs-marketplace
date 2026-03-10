@@ -1,9 +1,4 @@
-import {
-  IPlatformAdapter,
-  ExecOptions,
-  ExecResult,
-  TaskResult,
-} from "../platform-adapter.js";
+import { IPlatformAdapter, ExecOptions, ExecResult, TaskResult } from '../platform-adapter.js';
 
 /**
  * Mock implementation of IPlatformAdapter for testing
@@ -34,8 +29,8 @@ export class MockPlatformAdapter implements IPlatformAdapter {
   private execMockResponse: number = 0;
   private execOutputMockResponse: ExecResult = {
     code: 0,
-    stdout: "",
-    stderr: "",
+    stdout: '',
+    stderr: '',
   };
   private taskResult: { result: TaskResult; message: string } | null = null;
 
@@ -113,20 +108,12 @@ export class MockPlatformAdapter implements IPlatformAdapter {
     this.logs.debug.push(message);
   }
 
-  async exec(
-    command: string,
-    args: string[],
-    options?: ExecOptions
-  ): Promise<number> {
+  async exec(command: string, args: string[], options?: ExecOptions): Promise<number> {
     this.execCalls.push({ command, args, options });
     return this.execMockResponse;
   }
 
-  async execOutput(
-    command: string,
-    args: string[],
-    options?: ExecOptions
-  ): Promise<ExecResult> {
+  async execOutput(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
     this.execOutputCalls.push({ command, args, options });
     return this.execOutputMockResponse;
   }

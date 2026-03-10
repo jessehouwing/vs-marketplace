@@ -1,6 +1,6 @@
-import eslint from "@eslint/js";
-import tseslint from "typescript-eslint";
-import globals from "globals";
+import eslint from '@eslint/js';
+import tseslint from 'typescript-eslint';
+import globals from 'globals';
 
 export default tseslint.config(
   eslint.configs.recommended,
@@ -12,20 +12,11 @@ export default tseslint.config(
       },
     },
     rules: {
-      "@typescript-eslint/no-explicit-any": "warn",
-      "@typescript-eslint/no-unused-vars": [
-        "error",
-        { argsIgnorePattern: "^_" },
-      ],
+      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
   },
   {
-    ignores: [
-      "dist/",
-      "node_modules/",
-      "coverage/",
-      "packages/*/dist/",
-      ".rollup.cache/",
-    ],
+    ignores: ['dist/', 'node_modules/', 'coverage/', 'packages/*/dist/', '.rollup.cache/'],
   }
 );

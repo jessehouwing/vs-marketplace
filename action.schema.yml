@@ -31,6 +31,6 @@ inputs:
     type: string
     separators:
       - newline
-      - ","
+      - ','
     items:
       type: string
