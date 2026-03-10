@@ -33,3 +33,9 @@ jobs:
 
       - name: Check Prettier formatting
         run: npm run format:check
+
+      - name: Check action manifest sync
+        run: npm run sync:action-inputs:check
+
+      - name: Check validate docs samples
+        run: npm run docs:validate-samples
