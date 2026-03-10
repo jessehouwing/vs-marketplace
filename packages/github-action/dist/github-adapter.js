@@ -21,10 +21,8 @@ export class GitHubAdapter {
         if (!value) {
             throw new Error(`Required input '${name}' was not supplied`);
         }
-        if (checkExists) {
-            // Check if file exists using io.which for executables or basic check
-            // For simplicity, we'll assume the path is valid
-            // In production, you might want to use fs.existsSync
+        if (checkExists && !existsSync(value)) {
+            throw new Error(`Input path '${name}' does not exist: ${value}`);
         }
         return value;
     }

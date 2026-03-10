@@ -16,7 +16,7 @@ This repository provides tools for publishing Visual Studio extensions to the Vi
 
 ```yaml
 - name: Publish Visual Studio Extension
-  uses: jessehouwing/vs-marketplace@v1
+  uses: jessehouwing/vs-marketplace@v6
   with:
     auth-type: pat
     token: ${{ secrets.VS_MARKETPLACE_TOKEN }}
@@ -38,10 +38,10 @@ This repository provides tools for publishing Visual Studio extensions to the Vi
 ## Azure Pipelines Task Usage
 
 ```yaml
-- task: PublishVisualStudioExtension@1
+- task: vs-marketplace@6
   inputs:
-    connectTo: AzureRM
-    connectedServiceNameAzureRM: "Visual Studio Marketplace"
+    connectionType: "PAT"
+    connectionNamePAT: "Visual Studio Marketplace"
     vsixFile: "path/to/extension.vsix"
     manifestFile: "path/to/publishManifest.json"
     publisherId: "my-publisher"
@@ -50,9 +50,10 @@ This repository provides tools for publishing Visual Studio extensions to the Vi
 
 ### Task Inputs
 
-- `connectTo`: Connection type (`VsTeam` for PAT or `AzureRM` for OIDC)
-- `connectedServiceName`: Service connection for PAT authentication
-- `connectedServiceNameAzureRM`: Service connection for OIDC authentication
+- `connectionType`: Connection type (`PAT` for PAT, `WorkloadIdentity` for Workload Identity, or `AzureRM` for OIDC)
+- `connectionNamePAT`: Service connection for PAT authentication
+- `connectionNameWorkloadIdentity`: Service connection for Workload Identity authentication
+- `connectionNameAzureRM`: Service connection for OIDC authentication
 - `vsixFile`: Path to the VSIX file to publish
 - `manifestFile`: Path to the publish manifest file
 - `publisherId`: Publisher ID for the extension

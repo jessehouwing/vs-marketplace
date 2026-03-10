@@ -79,7 +79,7 @@ A more secure method that doesn't require storing long-lived credentials.
          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-     - uses: jessehouwing/vs-marketplace@v1
+     - uses: jessehouwing/vs-marketplace@v6
        with:
          auth-type: oidc
          # ... other inputs

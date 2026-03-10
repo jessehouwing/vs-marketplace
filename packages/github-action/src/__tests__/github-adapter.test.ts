@@ -118,7 +118,8 @@ describe("GitHubAdapter", () => {
       // Use import instead of require for ESM
       const fs = await import("fs");
       const path = await import("path");
-      const testPath = path.join("/tmp", "test-file-exists-gh.txt");
+      const os = await import("os");
+      const testPath = path.join(os.tmpdir(), "test-file-exists-gh.txt");
 
       fs.writeFileSync(testPath, "test");
       const result = adapter.fileExists(testPath);
@@ -127,8 +128,12 @@ describe("GitHubAdapter", () => {
       expect(result).toBe(true);
     });
 
-    it("should return false when file does not exist", () => {
-      const result = adapter.fileExists("/tmp/nonexistent-file-gh-12345.txt");
+    it("should return false when file does not exist", async () => {
+      const path = await import("path");
+      const os = await import("os");
+      const result = adapter.fileExists(
+        path.join(os.tmpdir(), "nonexistent-file-gh-12345.txt")
+      );
 
       expect(result).toBe(false);
     });
