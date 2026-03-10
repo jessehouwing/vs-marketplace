@@ -11,23 +11,23 @@ trigger:
       - v*
 
 pool:
-  vmImage: "windows-latest"
+  vmImage: 'windows-latest'
 
 steps:
   - task: VSBuild@1
-    displayName: "Build Extension"
+    displayName: 'Build Extension'
     inputs:
-      solution: "**/*.sln"
-      configuration: "Release"
+      solution: '**/*.sln'
+      configuration: 'Release'
 
   - task: vs-marketplace@6
-    displayName: "Publish to VS Marketplace"
+    displayName: 'Publish to VS Marketplace'
     inputs:
-      connectionType: "PAT"
-      connectionNamePAT: "Visual Studio Marketplace"
-      vsixFile: "$(Build.SourcesDirectory)/output/MyExtension.vsix"
-      manifestFile: "$(Build.SourcesDirectory)/publishManifest.json"
-      publisherId: "my-publisher"
+      connectionType: 'PAT'
+      connectionNamePAT: 'Visual Studio Marketplace'
+      vsixFile: '$(Build.SourcesDirectory)/output/MyExtension.vsix'
+      manifestFile: '$(Build.SourcesDirectory)/publishManifest.json'
+      publisherId: 'my-publisher'
 ```
 
 ## Using Workload Identity Federation (OIDC)
@@ -41,23 +41,23 @@ trigger:
       - v*
 
 pool:
-  vmImage: "windows-latest"
+  vmImage: 'windows-latest'
 
 steps:
   - task: VSBuild@1
-    displayName: "Build Extension"
+    displayName: 'Build Extension'
     inputs:
-      solution: "**/*.sln"
-      configuration: "Release"
+      solution: '**/*.sln'
+      configuration: 'Release'
 
   - task: vs-marketplace@6
-    displayName: "Publish to VS Marketplace"
+    displayName: 'Publish to VS Marketplace'
     inputs:
-      connectionType: "AzureRM"
-      connectionNameAzureRM: "Visual Studio Marketplace (OIDC)"
-      vsixFile: "$(Build.SourcesDirectory)/output/MyExtension.vsix"
-      manifestFile: "$(Build.SourcesDirectory)/publishManifest.json"
-      publisherId: "my-publisher"
+      connectionType: 'AzureRM'
+      connectionNameAzureRM: 'Visual Studio Marketplace (OIDC)'
+      vsixFile: '$(Build.SourcesDirectory)/output/MyExtension.vsix'
+      manifestFile: '$(Build.SourcesDirectory)/publishManifest.json'
+      publisherId: 'my-publisher'
 ```
 
 ## Ignoring Warnings
@@ -66,14 +66,14 @@ If you need to ignore specific warnings during validation:
 
 ```yaml
 - task: vs-marketplace@6
-  displayName: "Publish to VS Marketplace"
+  displayName: 'Publish to VS Marketplace'
   inputs:
-    connectionType: "PAT"
-    connectionNamePAT: "Visual Studio Marketplace"
-    vsixFile: "$(Build.SourcesDirectory)/output/MyExtension.vsix"
-    manifestFile: "$(Build.SourcesDirectory)/publishManifest.json"
-    publisherId: "my-publisher"
-    ignoreWarnings: "VSIXValidatorWarning01,VSIXValidatorWarning02"
+    connectionType: 'PAT'
+    connectionNamePAT: 'Visual Studio Marketplace'
+    vsixFile: '$(Build.SourcesDirectory)/output/MyExtension.vsix'
+    manifestFile: '$(Build.SourcesDirectory)/publishManifest.json'
+    publisherId: 'my-publisher'
+    ignoreWarnings: 'VSIXValidatorWarning01,VSIXValidatorWarning02'
 ```
 
 ## Setting up Service Connections

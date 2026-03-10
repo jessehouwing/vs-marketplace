@@ -1,5 +1,5 @@
-import * as tl from "azure-pipelines-task-lib/task.js";
-import { AuthCredentials, IPlatformAdapter } from "@vs-marketplace/core";
+import * as tl from 'azure-pipelines-task-lib/task.js';
+import { AuthCredentials, IPlatformAdapter } from '@vs-marketplace/core';
 
 /**
  * Get PAT authentication from service connection
@@ -13,8 +13,7 @@ export async function getPatAuth(
     throw new Error(`Service connection '${connectionName}' not found`);
   }
 
-  const pat =
-    endpoint.parameters["apitoken"] || endpoint.parameters["password"];
+  const pat = endpoint.parameters['apitoken'] || endpoint.parameters['password'];
   if (!pat) {
     throw new Error(`PAT not found in service connection '${connectionName}'`);
   }
@@ -23,10 +22,10 @@ export async function getPatAuth(
   platform.setSecret(pat);
 
   // For marketplace operations, use the marketplace URL
-  const serviceUrl = "https://marketplace.visualstudio.com";
+  const serviceUrl = 'https://marketplace.visualstudio.com';
 
   return {
-    authType: "pat",
+    authType: 'pat',
     serviceUrl,
     token: pat,
   };

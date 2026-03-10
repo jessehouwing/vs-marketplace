@@ -25,16 +25,16 @@ VSIX, then log out. The differences are:
 
 ## Input mapping
 
-| `PublishVisualStudioExtension@5` input | `vs-marketplace@6` input | Notes |
-| -------------------------------------- | ------------------------ | ----- |
-| `connectTo: VsTeam` | `connectionType: PAT` | Auth type selection for PAT |
-| `connectTo: AzureRM` | `connectionType: AzureRM` | Auth type selection for OIDC |
-| `connectedServiceName` | `connectionNamePAT` | PAT service connection — endpoint type changes (see below) |
-| `connectedServiceNameAzureRM` | `connectionNameAzureRM` | AzureRM service connection — same type, can reuse existing connection |
-| `vsixFile` | `vsixFile` | Unchanged |
-| `manifestFile` | `manifestFile` | Unchanged |
-| `publisherId` | `publisherId` | Unchanged |
-| `ignoreWarnings` | `ignoreWarnings` | Unchanged |
+| `PublishVisualStudioExtension@5` input | `vs-marketplace@6` input  | Notes                                                                 |
+| -------------------------------------- | ------------------------- | --------------------------------------------------------------------- |
+| `connectTo: VsTeam`                    | `connectionType: PAT`     | Auth type selection for PAT                                           |
+| `connectTo: AzureRM`                   | `connectionType: AzureRM` | Auth type selection for OIDC                                          |
+| `connectedServiceName`                 | `connectionNamePAT`       | PAT service connection — endpoint type changes (see below)            |
+| `connectedServiceNameAzureRM`          | `connectionNameAzureRM`   | AzureRM service connection — same type, can reuse existing connection |
+| `vsixFile`                             | `vsixFile`                | Unchanged                                                             |
+| `manifestFile`                         | `manifestFile`            | Unchanged                                                             |
+| `publisherId`                          | `publisherId`             | Unchanged                                                             |
+| `ignoreWarnings`                       | `ignoreWarnings`          | Unchanged                                                             |
 
 ### New auth option in v6
 
@@ -63,54 +63,54 @@ Steps:
 
 ```yaml
 - task: PublishVisualStudioExtension@5
-  displayName: "Publish to VS Marketplace"
+  displayName: 'Publish to VS Marketplace'
   inputs:
     connectTo: VsTeam
-    connectedServiceName: "My Marketplace Connection"
-    vsixFile: "$(Build.SourcesDirectory)/output/MyExtension.vsix"
-    manifestFile: "$(Build.SourcesDirectory)/publishManifest.json"
-    publisherId: "my-publisher"
-    ignoreWarnings: "VSIXValidatorWarning01"
+    connectedServiceName: 'My Marketplace Connection'
+    vsixFile: '$(Build.SourcesDirectory)/output/MyExtension.vsix'
+    manifestFile: '$(Build.SourcesDirectory)/publishManifest.json'
+    publisherId: 'my-publisher'
+    ignoreWarnings: 'VSIXValidatorWarning01'
 ```
 
 ### After (`vs-marketplace@6` with PAT)
 
 ```yaml
 - task: vs-marketplace@6
-  displayName: "Publish to VS Marketplace"
+  displayName: 'Publish to VS Marketplace'
   inputs:
-    connectionType: "PAT"
-    connectionNamePAT: "My Marketplace Connection (v6)"
-    vsixFile: "$(Build.SourcesDirectory)/output/MyExtension.vsix"
-    manifestFile: "$(Build.SourcesDirectory)/publishManifest.json"
-    publisherId: "my-publisher"
-    ignoreWarnings: "VSIXValidatorWarning01"
+    connectionType: 'PAT'
+    connectionNamePAT: 'My Marketplace Connection (v6)'
+    vsixFile: '$(Build.SourcesDirectory)/output/MyExtension.vsix'
+    manifestFile: '$(Build.SourcesDirectory)/publishManifest.json'
+    publisherId: 'my-publisher'
+    ignoreWarnings: 'VSIXValidatorWarning01'
 ```
 
 ### Before (`PublishVisualStudioExtension@5` with workload identity federation)
 
 ```yaml
 - task: PublishVisualStudioExtension@5
-  displayName: "Publish to VS Marketplace"
+  displayName: 'Publish to VS Marketplace'
   inputs:
     connectTo: AzureRM
-    connectedServiceNameAzureRM: "My Azure RM Connection"
-    vsixFile: "$(Build.SourcesDirectory)/output/MyExtension.vsix"
-    manifestFile: "$(Build.SourcesDirectory)/publishManifest.json"
-    publisherId: "my-publisher"
+    connectedServiceNameAzureRM: 'My Azure RM Connection'
+    vsixFile: '$(Build.SourcesDirectory)/output/MyExtension.vsix'
+    manifestFile: '$(Build.SourcesDirectory)/publishManifest.json'
+    publisherId: 'my-publisher'
 ```
 
 ### After (`vs-marketplace@6` with AzureRM / OIDC)
 
 ```yaml
 - task: vs-marketplace@6
-  displayName: "Publish to VS Marketplace"
+  displayName: 'Publish to VS Marketplace'
   inputs:
-    connectionType: "AzureRM"
-    connectionNameAzureRM: "My Azure RM Connection"
-    vsixFile: "$(Build.SourcesDirectory)/output/MyExtension.vsix"
-    manifestFile: "$(Build.SourcesDirectory)/publishManifest.json"
-    publisherId: "my-publisher"
+    connectionType: 'AzureRM'
+    connectionNameAzureRM: 'My Azure RM Connection'
+    vsixFile: '$(Build.SourcesDirectory)/output/MyExtension.vsix'
+    manifestFile: '$(Build.SourcesDirectory)/publishManifest.json'
+    publisherId: 'my-publisher'
 ```
 
 ## Agent requirements
@@ -121,7 +121,7 @@ available. No change is needed for the agent pool.
 
 ```yaml
 pool:
-  vmImage: "windows-latest"
+  vmImage: 'windows-latest'
 ```
 
 ## Authentication reference

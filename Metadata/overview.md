@@ -51,13 +51,13 @@ The **VS Marketplace** task publishes a Visual Studio extension (`.vsix` file) t
 
 ```yaml
 - task: vs-marketplace@6
-  displayName: "Publish to VS Marketplace"
+  displayName: 'Publish to VS Marketplace'
   inputs:
-    connectionType: "PAT"
-    connectionNamePAT: "VS Marketplace Connection"
-    vsixFile: "$(Build.SourcesDirectory)/output/MyExtension.vsix"
-    manifestFile: "$(Build.SourcesDirectory)/publishManifest.json"
-    publisherId: "my-publisher"
+    connectionType: 'PAT'
+    connectionNamePAT: 'VS Marketplace Connection'
+    vsixFile: '$(Build.SourcesDirectory)/output/MyExtension.vsix'
+    manifestFile: '$(Build.SourcesDirectory)/publishManifest.json'
+    publisherId: 'my-publisher'
 ```
 
 ## Support

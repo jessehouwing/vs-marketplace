@@ -10,7 +10,7 @@ name: Publish VS Extension
 on:
   push:
     tags:
-      - "v*"
+      - 'v*'
 
 jobs:
   publish:
@@ -45,7 +45,7 @@ name: Publish VS Extension (OIDC)
 on:
   push:
     tags:
-      - "v*"
+      - 'v*'
 
 permissions:
   id-token: write

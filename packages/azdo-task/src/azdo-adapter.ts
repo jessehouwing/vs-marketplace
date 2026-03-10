@@ -1,11 +1,11 @@
-import * as tl from "azure-pipelines-task-lib/task.js";
-import { spawn } from "child_process";
+import * as tl from 'azure-pipelines-task-lib/task.js';
+import { spawn } from 'child_process';
 import {
   IPlatformAdapter,
   ExecOptions,
   ExecResult,
   TaskResult as CoreTaskResult,
-} from "@vs-marketplace/core";
+} from '@vs-marketplace/core';
 
 export class AzdoAdapter implements IPlatformAdapter {
   getInput(name: string, required: boolean): string | undefined {
@@ -37,20 +37,12 @@ export class AzdoAdapter implements IPlatformAdapter {
     tl.debug(message);
   }
 
-  async exec(
-    command: string,
-    args: string[],
-    options?: ExecOptions
-  ): Promise<number> {
+  async exec(command: string, args: string[], options?: ExecOptions): Promise<number> {
     const result = await this.execOutput(command, args, options);
     return result.code;
   }
 
-  async execOutput(
-    command: string,
-    args: string[],
-    options?: ExecOptions
-  ): Promise<ExecResult> {
+  async execOutput(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
     return await new Promise<ExecResult>((resolve, reject) => {
       const child = spawn(command, args, {
         cwd: options?.cwd,
@@ -58,10 +50,10 @@ export class AzdoAdapter implements IPlatformAdapter {
         windowsHide: true,
       });
 
-      let stdout = "";
-      let stderr = "";
+      let stdout = '';
+      let stderr = '';
 
-      child.stdout.on("data", (data: Buffer) => {
+      child.stdout.on('data', (data: Buffer) => {
         const text = data.toString();
         stdout += text;
         if (!options?.silent) {
@@ -69,7 +61,7 @@ export class AzdoAdapter implements IPlatformAdapter {
         }
       });
 
-      child.stderr.on("data", (data: Buffer) => {
+      child.stderr.on('data', (data: Buffer) => {
         const text = data.toString();
         stderr += text;
         if (!options?.silent) {
@@ -77,12 +69,12 @@ export class AzdoAdapter implements IPlatformAdapter {
         }
       });
 
-      child.on("error", (error) => {
+      child.on('error', (error) => {
         reject(error);
       });
 
-      child.on("close", (exitCode) => {
-        const code = typeof exitCode === "number" ? exitCode : 1;
+      child.on('close', (exitCode) => {
+        const code = typeof exitCode === 'number' ? exitCode : 1;
 
         if (options?.failOnStdErr && stderr.trim().length > 0) {
           reject(new Error(`Command wrote to stderr: ${stderr.trim()}`));
@@ -90,9 +82,7 @@ export class AzdoAdapter implements IPlatformAdapter {
         }
 
         if (code !== 0 && !options?.ignoreReturnCode) {
-          reject(
-            new Error(`The process '${command}' failed with exit code ${code}`)
-          );
+          reject(new Error(`The process '${command}' failed with exit code ${code}`));
           return;
         }
 
@@ -111,9 +101,7 @@ export class AzdoAdapter implements IPlatformAdapter {
 
   setResult(result: CoreTaskResult, message: string): void {
     const azdoResult =
-      result === CoreTaskResult.Succeeded
-        ? tl.TaskResult.Succeeded
-        : tl.TaskResult.Failed;
+      result === CoreTaskResult.Succeeded ? tl.TaskResult.Succeeded : tl.TaskResult.Failed;
     tl.setResult(azdoResult, message);
   }
 }

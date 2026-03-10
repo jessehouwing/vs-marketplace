@@ -1,9 +1,9 @@
-import { IPlatformAdapter } from "./platform-adapter.js";
-import path from "path";
-import { fileURLToPath } from "url";
+import { IPlatformAdapter } from './platform-adapter.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 export interface PublishOptions {
-  connectTo: "pat" | "oidc";
+  connectTo: 'pat' | 'oidc';
   token: string;
   vsixFile: string;
   manifestFile: string;
@@ -30,20 +30,20 @@ export class VsixPublisher {
     const vswherePath = this.findVswhere();
     if (!vswherePath) {
       throw new Error(
-        "Could not locate vswhere.exe. Ensure Visual Studio is installed on the agent."
+        'Could not locate vswhere.exe. Ensure Visual Studio is installed on the agent.'
       );
     }
 
     const result = await this.adapter.execOutput(
       vswherePath,
       [
-        "-version",
-        "[15.0,)",
-        "-latest",
-        "-requires",
-        "Microsoft.VisualStudio.Component.VSSDK",
-        "-find",
-        "VSSDK\\VisualStudioIntegration\\Tools\\Bin\\VsixPublisher.exe",
+        '-version',
+        '[15.0,)',
+        '-latest',
+        '-requires',
+        'Microsoft.VisualStudio.Component.VSSDK',
+        '-find',
+        'VSSDK\\VisualStudioIntegration\\Tools\\Bin\\VsixPublisher.exe',
       ],
       {
         failOnStdErr: false,
@@ -69,7 +69,7 @@ export class VsixPublisher {
     }
 
     throw new Error(
-      "Could not locate VsixPublisher.exe. Ensure the Visual Studio SDK is installed on the agent."
+      'Could not locate VsixPublisher.exe. Ensure the Visual Studio SDK is installed on the agent.'
     );
   }
 
@@ -82,7 +82,7 @@ export class VsixPublisher {
       ? path.resolve(process.argv[1])
       : fileURLToPath(import.meta.url);
     const bundleDir = path.dirname(bundlePath);
-    const bundledVswhere = path.join(bundleDir, "tools", "vswhere.exe");
+    const bundledVswhere = path.join(bundleDir, 'tools', 'vswhere.exe');
 
     this.adapter.debug(`Checking for bundled vswhere at: ${bundledVswhere}`);
     if (this.adapter.fileExists(bundledVswhere)) {
@@ -91,8 +91,7 @@ export class VsixPublisher {
     }
 
     // Fallback: Common vswhere locations in Visual Studio installation
-    const programFiles =
-      process.env["ProgramFiles(x86)"] || "C:\\Program Files (x86)";
+    const programFiles = process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)';
     const vswherePath = `${programFiles}\\Microsoft Visual Studio\\Installer\\vswhere.exe`;
 
     this.adapter.debug(`Checking for system vswhere at: ${vswherePath}`);
@@ -102,7 +101,7 @@ export class VsixPublisher {
 
     // Try to find in PATH
     // For now, assume it's available or bundled
-    return "vswhere.exe";
+    return 'vswhere.exe';
   }
 
   /**
@@ -112,24 +111,18 @@ export class VsixPublisher {
     this.adapter.info(`Logging in as '${publisherId}'`);
 
     const vsixPublisher = await this.getVsixPublisherExe();
-    const args = [
-      "login",
-      "-personalAccessToken",
-      token,
-      "-publisherName",
-      publisherId,
-    ];
+    const args = ['login', '-personalAccessToken', token, '-publisherName', publisherId];
 
     const exitCode = await this.adapter.exec(vsixPublisher, args, {
       failOnStdErr: true,
     });
 
     if (exitCode !== 0) {
-      throw new Error("Login failed.");
+      throw new Error('Login failed.');
     }
 
     this.loggedIn = true;
-    this.adapter.info("Login successful.");
+    this.adapter.info('Login successful.');
   }
 
   /**
@@ -137,19 +130,14 @@ export class VsixPublisher {
    */
   async logout(publisherId: string): Promise<void> {
     if (!this.loggedIn) {
-      this.adapter.info("Already logged out.");
+      this.adapter.info('Already logged out.');
       return;
     }
 
     this.adapter.info(`Logging out publisher '${publisherId}'`);
 
     const vsixPublisher = await this.getVsixPublisherExe();
-    const args = [
-      "logout",
-      "-publisherName",
-      publisherId,
-      "-ignoreMissingPublisher",
-    ];
+    const args = ['logout', '-publisherName', publisherId, '-ignoreMissingPublisher'];
 
     const result = await this.adapter.execOutput(vsixPublisher, args, {
       failOnStdErr: false,
@@ -159,22 +147,21 @@ export class VsixPublisher {
     if (result.code !== 0) {
       if (result.code === 31) {
         this.adapter.debug(
-          "Logout returned exit code 31 (already logged out); treating as success."
+          'Logout returned exit code 31 (already logged out); treating as success.'
         );
         this.loggedIn = false;
-        this.adapter.info("Already logged out.");
+        this.adapter.info('Already logged out.');
         return;
       }
 
-      const combinedOutput =
-        `${result.stdout || ""}\n${result.stderr || ""}`.toLowerCase();
-      const alreadyLoggedOut = combinedOutput.includes("already logged out");
+      const combinedOutput = `${result.stdout || ''}\n${result.stderr || ''}`.toLowerCase();
+      const alreadyLoggedOut = combinedOutput.includes('already logged out');
       if (alreadyLoggedOut) {
         this.adapter.debug(
           `Logout returned exit code ${result.code} with 'already logged out' message; treating as success.`
         );
         this.loggedIn = false;
-        this.adapter.info("Already logged out.");
+        this.adapter.info('Already logged out.');
         return;
       }
 
@@ -182,27 +169,17 @@ export class VsixPublisher {
     }
 
     this.loggedIn = false;
-    this.adapter.info("Logout successful.");
+    this.adapter.info('Logout successful.');
   }
 
   /**
    * Publish VSIX to Visual Studio Marketplace
    */
-  async publish(
-    vsixPath: string,
-    manifestPath: string,
-    warningsToIgnore?: string
-  ): Promise<void> {
+  async publish(vsixPath: string, manifestPath: string, warningsToIgnore?: string): Promise<void> {
     this.adapter.info(`Publishing '${vsixPath}' to Visual Studio Marketplace`);
 
     const vsixPublisher = await this.getVsixPublisherExe();
-    const args = [
-      "publish",
-      "-payload",
-      vsixPath,
-      "-publishManifest",
-      manifestPath,
-    ];
+    const args = ['publish', '-payload', vsixPath, '-publishManifest', manifestPath];
 
     if (warningsToIgnore) {
       // Normalize: support both comma-separated and newline-separated lists
@@ -210,9 +187,9 @@ export class VsixPublisher {
         .split(/[\n,]/)
         .map((w) => w.trim())
         .filter((w) => w.length > 0)
-        .join(",");
+        .join(',');
       if (warnings) {
-        args.push("-ignoreWarnings", warnings);
+        args.push('-ignoreWarnings', warnings);
       }
     }
 
@@ -221,10 +198,10 @@ export class VsixPublisher {
     });
 
     if (exitCode !== 0) {
-      throw new Error("Publish failed.");
+      throw new Error('Publish failed.');
     }
 
-    this.adapter.info("Published successfully.");
+    this.adapter.info('Published successfully.');
   }
 }
 
@@ -249,13 +226,9 @@ export async function publishVsExtension(
     await publisher.login(publisherId, options.token);
 
     // Publish
-    await publisher.publish(
-      options.vsixFile,
-      options.manifestFile,
-      options.ignoreWarnings
-    );
+    await publisher.publish(options.vsixFile, options.manifestFile, options.ignoreWarnings);
 
-    adapter.setResult(0, "Visual Studio extension published successfully");
+    adapter.setResult(0, 'Visual Studio extension published successfully');
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     adapter.setResult(1, message);
@@ -271,6 +244,6 @@ export async function publishVsExtension(
         );
       }
     }
-    adapter.info("All done");
+    adapter.info('All done');
   }
 }

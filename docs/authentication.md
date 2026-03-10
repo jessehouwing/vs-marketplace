@@ -29,8 +29,8 @@ Create a service connection of type "Visual Studio Marketplace" and use:
 ```yaml
 - task: vs-marketplace@6
   inputs:
-    connectionType: "PAT"
-    connectionNamePAT: "Visual Studio Marketplace"
+    connectionType: 'PAT'
+    connectionNamePAT: 'Visual Studio Marketplace'
     # ... other inputs
 ```
 
@@ -94,8 +94,8 @@ A more secure method that doesn't require storing long-lived credentials.
    ```yaml
    - task: vs-marketplace@6
      inputs:
-       connectionType: "AzureRM"
-       connectionNameAzureRM: "Visual Studio Marketplace (OIDC)"
+       connectionType: 'AzureRM'
+       connectionNameAzureRM: 'Visual Studio Marketplace (OIDC)'
        # ... other inputs
    ```
 

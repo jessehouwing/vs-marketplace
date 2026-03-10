@@ -1,4 +1,4 @@
-import { jest } from "@jest/globals";
+import { jest } from '@jest/globals';
 
 export const mockGetInput = jest.fn();
 export const mockGetPathInput = jest.fn();
@@ -6,13 +6,11 @@ export const mockSetSecret = jest.fn();
 export const mockError = jest.fn();
 export const mockDebug = jest.fn();
 export const mockToolArg = jest.fn().mockReturnThis();
-export const mockToolExec = jest
-  .fn<() => Promise<number>>()
-  .mockResolvedValue(0);
+export const mockToolExec = jest.fn<() => Promise<number>>().mockResolvedValue(0);
 export const mockToolExecSync = jest.fn().mockReturnValue({
   code: 0,
-  stdout: "output",
-  stderr: "",
+  stdout: 'output',
+  stderr: '',
 });
 export const mockTool = jest.fn().mockReturnValue({
   arg: mockToolArg,

@@ -40,11 +40,7 @@ export interface IPlatformAdapter {
   /**
    * Execute a command synchronously
    */
-  execOutput(
-    command: string,
-    args: string[],
-    options?: ExecOptions
-  ): Promise<ExecResult>;
+  execOutput(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
 
   /**
    * Check if a file exists
