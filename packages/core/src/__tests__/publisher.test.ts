@@ -261,6 +261,48 @@ describe("VsixPublisher", () => {
       ]);
     });
 
+    it("should normalize newline-separated warnings to comma-separated", async () => {
+      const execCallsBefore = adapter.getExecCalls().length;
+
+      await publisher.publish(
+        "C:\\path\\to\\extension.vsix",
+        "C:\\path\\to\\manifest.json",
+        "Warning01\nWarning02"
+      );
+
+      const execCalls = adapter.getExecCalls();
+      expect(execCalls[execCallsBefore].args).toEqual([
+        "publish",
+        "-payload",
+        "C:\\path\\to\\extension.vsix",
+        "-publishManifest",
+        "C:\\path\\to\\manifest.json",
+        "-ignoreWarnings",
+        "Warning01,Warning02",
+      ]);
+    });
+
+    it("should trim whitespace from newline-separated warnings", async () => {
+      const execCallsBefore = adapter.getExecCalls().length;
+
+      await publisher.publish(
+        "C:\\path\\to\\extension.vsix",
+        "C:\\path\\to\\manifest.json",
+        "  Warning01  \n  Warning02  "
+      );
+
+      const execCalls = adapter.getExecCalls();
+      expect(execCalls[execCallsBefore].args).toEqual([
+        "publish",
+        "-payload",
+        "C:\\path\\to\\extension.vsix",
+        "-publishManifest",
+        "C:\\path\\to\\manifest.json",
+        "-ignoreWarnings",
+        "Warning01,Warning02",
+      ]);
+    });
+
     it("should throw error when publish fails", async () => {
       adapter.setExecMockResponse(1);
 
