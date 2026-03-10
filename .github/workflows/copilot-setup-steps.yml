@@ -1,0 +1,128 @@
+name: Copilot setup steps
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - v6
+      - main
+
+permissions: {}
+
+env:
+  NODE_VERSION: "24"
+
+jobs:
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      id-token: write
+      packages: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #v6.0.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f #v6.3.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      - name: Setup Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 #v6.2.0
+        with:
+          python-version: "3.x"
+
+      - name: Setup Go
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 #v6.3.0
+        with:
+          go-version: stable
+
+      - name: Ensure Azure CLI is installed
+        id: azure_cli
+        run: |
+          set -euo pipefail
+          if command -v az >/dev/null 2>&1; then
+            echo "Azure CLI already present"
+          else
+            curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+          fi
+          az version
+          az extension add --name azure-devops
+          azure_cli_version="$(az version --query '"azure-cli"' -o tsv)"
+          echo "version=${azure_cli_version}" >> "$GITHUB_OUTPUT"
+          echo "Azure CLI version: ${azure_cli_version}"
+
+      - name: Ensure tfx-cli is installed
+        id: tfx
+        run: |
+          set -euo pipefail
+          npm install --global tfx-cli
+          tfx_version="$(tfx version --no-color --no-prompt | awk '/^Version / { print $2; exit }')"
+          echo "version=${tfx_version}" >> "$GITHUB_OUTPUT"
+          echo "tfx-cli version: ${tfx_version}"
+
+      - name: Ensure jest is installed globally
+        id: jest
+        run: |
+          set -euo pipefail
+          npm install --global jest
+          jest_version="$(jest --version)"
+          echo "version=${jest_version}" >> "$GITHUB_OUTPUT"
+          echo "jest version: ${jest_version}"
+
+      - name: Ensure pre-commit is installed
+        id: pre_commit
+        run: |
+          set -euo pipefail
+          python3 -m pip install --user pre-commit
+          pre_commit_version="$(python3 -m pre_commit --version)"
+          echo "version=${pre_commit_version}" >> "$GITHUB_OUTPUT"
+          echo "pre-commit version: ${pre_commit_version}"
+
+      - name: Ensure actionlint is installed
+        id: actionlint
+        run: |
+          set -euo pipefail
+          go install github.com/rhysd/actionlint/cmd/actionlint@latest
+          gopath="$(go env GOPATH)"
+          actionlint_version="$("${gopath}/bin/actionlint" -version | head -n 1)"
+          echo "version=${actionlint_version}" >> "$GITHUB_OUTPUT"
+          echo "actionlint version: ${actionlint_version}"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install pre-commit hooks
+        run: python3 -m pre_commit install --install-hooks
+
+      - name: Build v6 packages
+        run: npm run build
+
+      - name: Setup summary
+        env:
+          AZURE_CLI_VERSION: ${{ steps.azure_cli.outputs.version }}
+          TFX_VERSION: ${{ steps.tfx.outputs.version }}
+          JEST_VERSION: ${{ steps.jest.outputs.version }}
+          PRE_COMMIT_VERSION: ${{ steps.pre_commit.outputs.version }}
+          ACTIONLINT_VERSION: ${{ steps.actionlint.outputs.version }}
+        run: |
+          {
+            echo "## Copilot setup summary"
+            echo "- Node: ${NODE_VERSION}"
+            echo "- Azure CLI: ${AZURE_CLI_VERSION}"
+            echo "- tfx-cli: ${TFX_VERSION}"
+            echo "- jest: ${JEST_VERSION}"
+            echo "- pre-commit: ${PRE_COMMIT_VERSION}"
+            echo "- actionlint: ${ACTIONLINT_VERSION}"
+            echo "- Dependencies: ✅ Installed"
+            echo "- Git hooks: ✅ Installed"
+            echo "- Build: ✅ Successful"
+          } >> "$GITHUB_STEP_SUMMARY"

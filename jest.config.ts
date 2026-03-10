@@ -16,6 +16,10 @@ const config: Config = {
         tsconfig: {
           module: "Node16",
           moduleResolution: "Node16",
+          baseUrl: ".",
+          paths: {
+            "@vs-marketplace/core": ["packages/core/src/index.ts"],
+          },
         },
       },
     ],

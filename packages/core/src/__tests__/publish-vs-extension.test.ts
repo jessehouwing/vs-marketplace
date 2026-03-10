@@ -62,7 +62,9 @@ describe("publishVsExtension", () => {
     expect(publishCall?.args).toContain("C:\\extension.vsix");
 
     // Check logout call
-    const logoutCall = execOutputCalls.find((call) => call.args.includes("logout"));
+    const logoutCall = execOutputCalls.find((call) =>
+      call.args.includes("logout")
+    );
     expect(logoutCall).toBeDefined();
   });
 
@@ -121,7 +123,7 @@ describe("publishVsExtension", () => {
 
   it("should attempt logout even if publish fails", async () => {
     let callCount = 0;
-    adapter.exec = async (command, args) => {
+    adapter.exec = async (_command, _args) => {
       callCount++;
       if (callCount === 2) {
         // Fail on publish
@@ -210,7 +212,7 @@ describe("publishVsExtension", () => {
   it("should handle non-Error thrown values", async () => {
     // Mock execOutput to throw a non-Error value during VsixPublisher.exe lookup
     adapter.execOutput = async () => {
-      throw "String error"; // eslint-disable-line @typescript-eslint/only-throw-error
+      throw "String error";
     };
 
     // This should fail during the login attempt when trying to find VsixPublisher.exe

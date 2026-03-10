@@ -1,4 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach, jest } from "@jest/globals";
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  jest,
+} from "@jest/globals";
 import { GitHubAdapter } from "../github-adapter.js";
 import { TaskResult } from "@vs-marketplace/core";
 
@@ -17,7 +24,10 @@ describe("GitHubAdapter", () => {
   describe("execOutput", () => {
     it("should execute command and return output", async () => {
       // Use the Node executable for a cross-platform, deterministic success case.
-      const result = await adapter.execOutput(process.execPath, ["-e", "process.exit(0)"]);
+      const result = await adapter.execOutput(process.execPath, [
+        "-e",
+        "process.exit(0)",
+      ]);
 
       expect(result.code).toBe(0);
     });

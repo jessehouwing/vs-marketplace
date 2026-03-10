@@ -90,7 +90,9 @@ export class AzdoAdapter implements IPlatformAdapter {
         }
 
         if (code !== 0 && !options?.ignoreReturnCode) {
-          reject(new Error(`The process '${command}' failed with exit code ${code}`));
+          reject(
+            new Error(`The process '${command}' failed with exit code ${code}`)
+          );
           return;
         }
 

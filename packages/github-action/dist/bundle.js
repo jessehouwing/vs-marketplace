@@ -49260,16 +49260,16 @@ const allowedRedirect = ["GET", "HEAD"];
  * @param options - Options to control policy behavior.
  */
 function redirectPolicy$1(options = {}) {
-    const { maxRetries = 20 } = options;
+    const { maxRetries = 20, allowCrossOriginRedirects = false } = options;
     return {
         name: redirectPolicyName,
         async sendRequest(request, next) {
             const response = await next(request);
-            return handleRedirect(next, response, maxRetries);
+            return handleRedirect(next, response, maxRetries, allowCrossOriginRedirects);
         },
     };
 }
-async function handleRedirect(next, response, maxRetries, currentRetries = 0) {
+async function handleRedirect(next, response, maxRetries, allowCrossOriginRedirects, currentRetries = 0) {
     const { request, status, headers } = response;
     const locationHeader = headers.get("location");
     if (locationHeader &&
@@ -49280,6 +49280,14 @@ async function handleRedirect(next, response, maxRetries, currentRetries = 0) {
             status === 307) &&
         currentRetries < maxRetries) {
         const url = new URL(locationHeader, request.url);
+        // Only follow redirects to the same origin by default.
+        if (!allowCrossOriginRedirects) {
+            const originalUrl = new URL(request.url);
+            if (url.origin !== originalUrl.origin) {
+                logger$h.verbose(`Skipping cross-origin redirect from ${originalUrl.origin} to ${url.origin}.`);
+                return response;
+            }
+        }
         request.url = url.toString();
         // POST request with Status code 303 should be converted into a
         // redirected GET request if the redirect url is present in the location header
@@ -49290,7 +49298,7 @@ async function handleRedirect(next, response, maxRetries, currentRetries = 0) {
         }
         request.headers.delete("Authorization");
         const res = await next(request);
-        return handleRedirect(next, res, maxRetries, currentRetries + 1);
+        return handleRedirect(next, res, maxRetries, allowCrossOriginRedirects, currentRetries + 1);
     }
     return response;
 }
@@ -51945,7 +51953,7 @@ async function setPlatformSpecificData(map) {
 
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
-const SDK_VERSION = "1.22.2";
+const SDK_VERSION = "1.22.3";
 const DEFAULT_RETRY_POLICY_COUNT = 3;
 
 // Copyright (c) Microsoft Corporation.
@@ -57083,11 +57091,18 @@ class VsixPublisher {
             ignoreReturnCode: true,
         });
         if (result.code === 0 && result.stdout) {
-            const vsixPublisherExe = result.stdout.trim();
-            if (this.adapter.fileExists(vsixPublisherExe)) {
-                this.adapter.debug(`VsixPublisher.exe found at: ${vsixPublisherExe}`);
-                this.vsixPublisherPath = vsixPublisherExe;
-                return vsixPublisherExe;
+            // vswhere -find can return multiple paths (one per line)
+            // Split by line breaks and pick the first existing path
+            const paths = result.stdout
+                .split(/\r?\n/)
+                .map((line) => line.trim())
+                .filter((line) => line.length > 0);
+            for (const vsixPublisherExe of paths) {
+                if (this.adapter.fileExists(vsixPublisherExe)) {
+                    this.adapter.debug(`VsixPublisher.exe found at: ${vsixPublisherExe}`);
+                    this.vsixPublisherPath = vsixPublisherExe;
+                    return vsixPublisherExe;
+                }
             }
         }
         throw new Error("Could not locate VsixPublisher.exe. Ensure the Visual Studio SDK is installed on the agent.");
@@ -57194,7 +57209,15 @@ class VsixPublisher {
             manifestPath,
         ];
         if (warningsToIgnore) {
-            args.push("-ignoreWarnings", warningsToIgnore);
+            // Normalize: support both comma-separated and newline-separated lists
+            const warnings = warningsToIgnore
+                .split(/[\n,]/)
+                .map((w) => w.trim())
+                .filter((w) => w.length > 0)
+                .join(",");
+            if (warnings) {
+                args.push("-ignoreWarnings", warnings);
+            }
         }
         const exitCode = await this.adapter.exec(vsixPublisher, args, {
             failOnStdErr: true,
@@ -57262,6 +57285,9 @@ class GitHubAdapter {
         if (!value) {
             throw new Error(`Required input '${name}' was not supplied`);
         }
+        if (checkExists && !existsSync(value)) {
+            throw new Error(`Input path '${name}' does not exist: ${value}`);
+        }
         return value;
     }
     setSecret(secret) {
@@ -57287,7 +57313,7 @@ class GitHubAdapter {
             silent: options?.silent,
             cwd: options?.cwd,
             ignoreReturnCode: true,
-            failOnStdErr: false
+            failOnStdErr: false,
         });
         if (options?.failOnStdErr && result.stderr.trim().length > 0) {
             throw new Error(`Command wrote to stderr: ${result.stderr.trim()}`);
@@ -57331,6 +57357,10 @@ async function run() {
             // Get token for Visual Studio Marketplace
             // Resource ID: 499b84ac-1321-427f-aa17-267ca6975798
             const tokenResponse = await credential.getToken("499b84ac-1321-427f-aa17-267ca6975798/.default");
+            if (!tokenResponse || !tokenResponse.token) {
+                throw new Error("Failed to obtain access token from Azure credentials. " +
+                    "Ensure Azure login is configured and has permissions for Visual Studio Marketplace.");
+            }
             token = tokenResponse.token;
         }
         else {
