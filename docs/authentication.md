@@ -92,10 +92,10 @@ A more secure method that doesn't require storing long-lived credentials.
 3. Use in pipeline:
 
    ```yaml
-   - task: PublishVisualStudioExtension@1
+   - task: vs-marketplace@6
      inputs:
-       connectTo: "AzureRM"
-       connectedServiceNameAzureRM: "Visual Studio Marketplace (OIDC)"
+       connectionType: "AzureRM"
+       connectionNameAzureRM: "Visual Studio Marketplace (OIDC)"
        # ... other inputs
    ```
 
