@@ -205,7 +205,15 @@ export class VsixPublisher {
     ];
 
     if (warningsToIgnore) {
-      args.push("-ignoreWarnings", warningsToIgnore);
+      // Normalize: support both comma-separated and newline-separated lists
+      const warnings = warningsToIgnore
+        .split(/[\n,]/)
+        .map((w) => w.trim())
+        .filter((w) => w.length > 0)
+        .join(",");
+      if (warnings) {
+        args.push("-ignoreWarnings", warnings);
+      }
     }
 
     const exitCode = await this.adapter.exec(vsixPublisher, args, {

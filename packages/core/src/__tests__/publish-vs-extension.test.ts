@@ -180,6 +180,18 @@ describe("publishVsExtension", () => {
     expect(publishCall?.args).toContain("Warning01,Warning02");
   });
 
+  it("should normalize newline-separated ignore warnings to comma-separated", async () => {
+    options.ignoreWarnings = "Warning01\nWarning02";
+
+    await publishVsExtension(options, adapter);
+
+    const execCalls = adapter.getExecCalls();
+    const publishCall = execCalls.find((call) => call.args.includes("publish"));
+
+    expect(publishCall?.args).toContain("-ignoreWarnings");
+    expect(publishCall?.args).toContain("Warning01,Warning02");
+  });
+
   it("should handle error objects with message property", async () => {
     adapter.setFileExists(
       "C:\\Program Files (x86)\\Microsoft Visual Studio\\Installer\\vswhere.exe",

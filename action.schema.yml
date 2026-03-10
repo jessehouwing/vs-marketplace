@@ -1,0 +1,36 @@
+# Schema for action-example-checker
+# See: https://github.com/jessehouwing/actions-example-checker
+
+# Define reusable custom types
+types:
+  identifier:
+    type: string
+    match: '^[a-zA-Z0-9._-]+$'
+
+# Validate inputs
+inputs:
+  auth-type:
+    type: choice
+    options:
+      - pat
+      - oidc
+
+  token:
+    type: string
+
+  vsix-file:
+    type: string
+
+  manifest-file:
+    type: string
+
+  publisher-id:
+    type: identifier
+
+  ignore-warnings:
+    type: string
+    separators:
+      - newline
+      - ","
+    items:
+      type: string

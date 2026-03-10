@@ -29,7 +29,7 @@ inputs:
     required: true
 
   ignore-warnings:
-    description: "Comma-separated list of warnings to ignore (e.g., VSIXValidatorWarning01,VSIXValidatorWarning02)"
+    description: "Comma or newline-separated list of warnings to ignore (e.g., VSIXValidatorWarning01,VSIXValidatorWarning02)"
     required: false
 
 runs:
