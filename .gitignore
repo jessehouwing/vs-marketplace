@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build outputs
+dist/
+*.js
+*.js.map
+*.d.ts
+!eslint.config.mjs
+!Scripts/**/*.mjs
+
+# Build info
+*.tsbuildinfo
+.rollup.cache/
+
+# Test outputs
+coverage/
+.nyc_output/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Temporary files
+*.tmp
+.cache/
+.temp/
+
+# Tools (except core package vswhere.exe which is committed)
+tools/
+packages/azdo-task/tools/
+
+.taskkey
+
+
+!packages/github-action/dist/
+!packages/core/tools/
+!packages/core/tools/vswhere.exe
+

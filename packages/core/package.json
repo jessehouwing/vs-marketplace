@@ -1,0 +1,19 @@
+{
+  "name": "@vs-marketplace/core",
+  "version": "1.0.0",
+  "description": "Core logic for Visual Studio Extension publishing",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "azure-devops-node-api": "^14.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.13",
+    "typescript": "^5.9.3"
+  }
+}

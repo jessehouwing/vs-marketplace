@@ -1,0 +1,22 @@
+{
+  "name": "@vs-marketplace/github-action",
+  "version": "1.0.0",
+  "description": "GitHub Action for Visual Studio Extension publishing",
+  "type": "module",
+  "main": "./dist/main.js",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@vs-marketplace/core": "^1.0.0",
+    "@actions/core": "^1.11.1",
+    "@actions/exec": "^1.1.1",
+    "@actions/io": "^1.1.3",
+    "@azure/identity": "^4.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.13",
+    "typescript": "^5.9.3"
+  }
+}

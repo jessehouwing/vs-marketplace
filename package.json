@@ -1,0 +1,62 @@
+{
+  "name": "vs-marketplace",
+  "version": "1.0.0",
+  "description": "Visual Studio Marketplace Extension Publishing",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jessehouwing/vs-marketplace.git"
+  },
+  "keywords": [
+    "visual-studio",
+    "vs-marketplace",
+    "visual-studio-extension",
+    "vsix"
+  ],
+  "workspaces": [
+    "packages/core",
+    "packages/azdo-task",
+    "packages/github-action"
+  ],
+  "scripts": {
+    "initdev": "npm install --no-progress --force --no-update-notifier --legacy-peer-deps --no-fund",
+    "download:vswhere": "node Scripts/download-vswhere.mjs",
+    "build": "npm run download:vswhere && npm run build --workspaces --if-present",
+    "build:clean": "npm run clean && npm run initdev && npm run build",
+    "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --no-coverage",
+    "test:coverage": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --coverage",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "bundle:azdo": "node Scripts/bundle.mjs azdo",
+    "bundle:actions": "node Scripts/bundle.mjs actions",
+    "bundle": "npm run bundle:azdo && npm run bundle:actions",
+    "clean": "git clean -fdX"
+  },
+  "author": "Jesse Houwing",
+  "license": "MIT",
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@rollup/plugin-commonjs": "^29.0.0",
+    "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-node-resolve": "^16.0.3",
+    "@rollup/plugin-typescript": "^12.3.0",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.10.13",
+    "eslint": "^10.0.2",
+    "globals": "^17.3.0",
+    "jest": "^30.2.0",
+    "prettier": "^3.4.2",
+    "rollup": "^4.59.0",
+    "tfx-cli": "^0.23.1",
+    "ts-jest": "^29.2.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.56.1"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "^4.57.1",
+    "@rollup/rollup-win32-x64-gnu": "^4.57.1",
+    "@rollup/rollup-win32-x64-msvc": "^4.57.1"
+  }
+}

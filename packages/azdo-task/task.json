@@ -1,0 +1,98 @@
+{
+  "id": "17654839-813a-4e5f-a724-223a68ec647c",
+  "name": "vs-marketplace",
+  "friendlyName": "VS Marketplace - Publish Extension",
+  "description": "Publish Visual Studio extension to the Visual Studio Marketplace",
+  "author": "Jesse Houwing",
+  "helpMarkDown": "[More Information](https://github.com/jessehouwing/vs-marketplace)",
+  "preview": true,
+  "category": "Deploy",
+  "version": {
+    "Major": 6,
+    "Minor": 0,
+    "Patch": 0
+  },
+  "visibility": ["Build", "Release"],
+  "demands": ["visualstudio"],
+  "minimumAgentVersion": "2.206.1",
+  "groups": [],
+  "instanceNameFormat": "Publish Visual Studio Extension",
+  "inputs": [
+    {
+      "name": "connectionType",
+      "type": "pickList",
+      "label": "Connection Type",
+      "required": true,
+      "defaultValue": "PAT",
+      "helpMarkDown": "**Authentication method** for Visual Studio Marketplace operations:\n\n- **PAT**: Use Personal Access Token (recommended for most users)\n- **WorkloadIdentity**: Use workload identity federation (no secrets needed, requires service connection)\n- **AzureRM**: Use Azure Resource Manager with OIDC (no secrets needed, requires Azure RM service connection)",
+      "options": {
+        "PAT": "Visual Studio Marketplace (PAT)",
+        "WorkloadIdentity": "Visual Studio Marketplace (WorkloadIdentity)",
+        "AzureRM": "Azure Resource Manager (OIDC)"
+      }
+    },
+    {
+      "name": "connectionNamePAT",
+      "type": "connectedService:VsMarketplacePublishing",
+      "label": "Service Connection",
+      "required": true,
+      "helpMarkDown": "**Visual Studio Marketplace service connection** configured with a Personal Access Token (PAT).\n\n**Required scopes**: Marketplace (Publish)\n\nCreate a PAT at: https://dev.azure.com/_usersSettings/tokens",
+      "visibleRule": "connectionType = PAT"
+    },
+    {
+      "name": "connectionNameWorkloadIdentity",
+      "type": "connectedService:workloadidentityuser",
+      "label": "Visual Studio Marketplace Service Connection",
+      "required": true,
+      "helpMarkDown": "**Visual Studio Marketplace Workload Identity service connection** used to authenticate marketplace operations without PAT secrets.\n\nUse this connection when `connectionType = WorkloadIdentity` for federated authentication.",
+      "visibleRule": "connectionType = WorkloadIdentity"
+    },
+    {
+      "name": "connectionNameAzureRM",
+      "type": "connectedService:AzureRM",
+      "label": "Azure RM Connection",
+      "required": true,
+      "helpMarkDown": "**Azure Resource Manager service connection** using workload identity federation (OIDC).\n\n**Benefits**: No secrets or PAT tokens needed - uses federated Azure credentials\n\n**Required**: Connection must have access to Visual Studio Marketplace scope (`499b84ac-1321-427f-aa17-267ca6975798`)",
+      "visibleRule": "connectionType = AzureRM"
+    },
+    {
+      "name": "vsixFile",
+      "type": "filePath",
+      "label": "VSIX file",
+      "defaultValue": "",
+      "required": true,
+      "helpMarkDown": "VSIX file to publish."
+    },
+    {
+      "name": "manifestFile",
+      "type": "filePath",
+      "label": "Manifest file",
+      "defaultValue": "",
+      "required": true,
+      "helpMarkDown": "Path for the publish manifest file. [More information](https://docs.microsoft.com/en-us/visualstudio/extensibility/walkthrough-publishing-a-visual-studio-extension-via-command-line)"
+    },
+    {
+      "name": "publisherId",
+      "type": "string",
+      "label": "Publisher ID",
+      "defaultValue": "",
+      "required": true,
+      "helpMarkDown": "Extension publisher ID."
+    },
+    {
+      "name": "ignoreWarnings",
+      "type": "string",
+      "label": "Warnings to ignore",
+      "defaultValue": "",
+      "helpMarkDown": "List of warnings to ignore when publishing an extension (e.g., \"VSIXValidatorWarning01,VSIXValidatorWarning02\").",
+      "required": false
+    }
+  ],
+  "execution": {
+    "Node20_1": {
+      "target": "dist/bundle.js",
+      "argumentFormat": "",
+      "platforms": ["windows"]
+    }
+  }
+}
