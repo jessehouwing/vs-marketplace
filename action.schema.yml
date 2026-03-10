@@ -29,3 +29,8 @@ inputs:
 
   ignore-warnings:
     type: string
+    separators:
+      - newline
+      - ","
+    items:
+      type: string
