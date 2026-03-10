@@ -7,7 +7,6 @@ import {
   afterEach,
 } from "@jest/globals";
 import { AzdoAdapter } from "../azdo-adapter.js";
-import { TaskResult } from "@vs-marketplace/core";
 
 // Note: Since azure-pipelines-task-lib is an Azure Pipelines-specific library
 // and ESM mocking is complex, we test what we can without full library mocking.

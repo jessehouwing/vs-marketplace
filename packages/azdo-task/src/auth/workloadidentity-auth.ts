@@ -31,7 +31,8 @@ export async function getWorkloadIdentityAuth(
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     throw new Error(
-      `Failed to get workload identity authentication: ${errorMessage}`
+      `Failed to get workload identity authentication: ${errorMessage}`,
+      { cause: error }
     );
   }
 }

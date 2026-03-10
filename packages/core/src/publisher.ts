@@ -166,7 +166,8 @@ export class VsixPublisher {
         return;
       }
 
-      const combinedOutput = `${result.stdout || ""}\n${result.stderr || ""}`.toLowerCase();
+      const combinedOutput =
+        `${result.stdout || ""}\n${result.stderr || ""}`.toLowerCase();
       const alreadyLoggedOut = combinedOutput.includes("already logged out");
       if (alreadyLoggedOut) {
         this.adapter.debug(

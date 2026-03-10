@@ -1,19 +1,19 @@
 #!/usr/bin/env node
 
-import { promises as fs } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { createRequire } from 'node:module';
+import { promises as fs } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
-const yaml = require('js-yaml');
+const yaml = require("js-yaml");
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const rootDir = path.join(__dirname, '..');
+const rootDir = path.join(__dirname, "..");
 
-const IGNORE_MARKERS = ['# docs-validate-ignore'];
-const ACTION_REPO = 'jessehouwing/vs-marketplace';
-const AZDO_TASK_SCHEMA_FILES = ['packages/azdo-task/task.json'];
+const IGNORE_MARKERS = ["# docs-validate-ignore"];
+const ACTION_REPO = "jessehouwing/vs-marketplace";
+const AZDO_TASK_SCHEMA_FILES = ["packages/azdo-task/task.json"];
 
 function unquote(value) {
   const trimmed = value.trim();
@@ -28,17 +28,17 @@ function unquote(value) {
 }
 
 function toPosixPath(value) {
-  return value.split(path.sep).join('/');
+  return value.split(path.sep).join("/");
 }
 
 function normalizeEol(value) {
-  return value.replace(/\r\n/g, '\n');
+  return value.replace(/\r\n/g, "\n");
 }
 
 function lineAtOffset(value, offset) {
   let line = 1;
   for (let index = 0; index < offset && index < value.length; index++) {
-    if (value[index] === '\n') {
+    if (value[index] === "\n") {
       line++;
     }
   }
@@ -46,11 +46,16 @@ function lineAtOffset(value, offset) {
 }
 
 function isObject(value) {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 async function listMarkdownFiles(directory) {
-  const ignoredDirectories = new Set(['.git', 'node_modules', 'dist', 'coverage']);
+  const ignoredDirectories = new Set([
+    ".git",
+    "node_modules",
+    "dist",
+    "coverage",
+  ]);
   const result = [];
   const entries = await fs.readdir(directory, { withFileTypes: true });
 
@@ -64,7 +69,7 @@ async function listMarkdownFiles(directory) {
       continue;
     }
 
-    if (entry.isFile() && entry.name.toLowerCase().endsWith('.md')) {
+    if (entry.isFile() && entry.name.toLowerCase().endsWith(".md")) {
       result.push(fullPath);
     }
   }
@@ -92,25 +97,25 @@ function extractYamlCodeBlocks(markdownContent) {
 }
 
 function extractActionReference(usesValue) {
-  if (typeof usesValue !== 'string') {
+  if (typeof usesValue !== "string") {
     return undefined;
   }
 
   const trimmed = unquote(usesValue);
-  const pattern = new RegExp(`^${ACTION_REPO}(?:/([A-Za-z0-9._-]+))?@.+$`, 'i');
+  const pattern = new RegExp(`^${ACTION_REPO}(?:/([A-Za-z0-9._-]+))?@.+$`, "i");
   const match = trimmed.match(pattern);
   if (!match) {
     return undefined;
   }
 
   return {
-    actionName: match[1] ?? '',
+    actionName: match[1] ?? "",
     uses: trimmed,
   };
 }
 
 function extractAzdoTaskReference(taskValue) {
-  if (typeof taskValue !== 'string') {
+  if (typeof taskValue !== "string") {
     return undefined;
   }
 
@@ -142,7 +147,7 @@ function findReferencedSteps(node, found = []) {
   if (actionRef) {
     found.push({
       ...actionRef,
-      id: typeof node.id === 'string' ? node.id : undefined,
+      id: typeof node.id === "string" ? node.id : undefined,
       with: isObject(node.with) ? node.with : undefined,
     });
   }
@@ -170,7 +175,7 @@ function findReferencedTasks(node, found = []) {
   if (taskRef) {
     found.push({
       ...taskRef,
-      name: typeof node.name === 'string' ? node.name : undefined,
+      name: typeof node.name === "string" ? node.name : undefined,
       inputs: isObject(node.inputs) ? node.inputs : undefined,
     });
   }
@@ -188,7 +193,7 @@ function countIndent(line) {
 }
 
 function findReferencedStepsTolerant(blockText) {
-  const lines = blockText.split('\n');
+  const lines = blockText.split("\n");
   const found = [];
 
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
@@ -210,7 +215,11 @@ function findReferencedStepsTolerant(blockText) {
     const withLines = new Map();
 
     let withIndent = -1;
-    for (let innerIndex = lineIndex + 1; innerIndex < lines.length; innerIndex++) {
+    for (
+      let innerIndex = lineIndex + 1;
+      innerIndex < lines.length;
+      innerIndex++
+    ) {
       const innerLine = lines[innerIndex];
       if (innerLine.trim().length === 0) {
         continue;
@@ -264,7 +273,7 @@ function findReferencedStepsTolerant(blockText) {
 }
 
 function findReferencedTasksTolerant(blockText) {
-  const lines = blockText.split('\n');
+  const lines = blockText.split("\n");
   const found = [];
 
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
@@ -286,7 +295,11 @@ function findReferencedTasksTolerant(blockText) {
     const inputLines = new Map();
     let inputsIndent = -1;
 
-    for (let innerIndex = lineIndex + 1; innerIndex < lines.length; innerIndex++) {
+    for (
+      let innerIndex = lineIndex + 1;
+      innerIndex < lines.length;
+      innerIndex++
+    ) {
       const innerLine = lines[innerIndex];
       if (innerLine.trim().length === 0) {
         continue;
@@ -347,18 +360,24 @@ function locateInBlock(blockText, pattern, fallbackLine) {
 
 async function loadActionSchemas() {
   const schemas = new Map();
-  const rootActionPath = path.join(rootDir, 'action.yml');
-  const rootActionContent = normalizeEol(await fs.readFile(rootActionPath, 'utf8'));
+  const rootActionPath = path.join(rootDir, "action.yml");
+  const rootActionContent = normalizeEol(
+    await fs.readFile(rootActionPath, "utf8")
+  );
   const rootAction = yaml.load(rootActionContent);
 
   if (!isObject(rootAction)) {
-    throw new Error('Invalid root action.yml');
+    throw new Error("Invalid root action.yml");
   }
 
-  schemas.set('', {
-    inputs: new Set(Object.keys(isObject(rootAction.inputs) ? rootAction.inputs : {})),
-    outputs: new Set(Object.keys(isObject(rootAction.outputs) ? rootAction.outputs : {})),
-    sourceFile: 'action.yml',
+  schemas.set("", {
+    inputs: new Set(
+      Object.keys(isObject(rootAction.inputs) ? rootAction.inputs : {})
+    ),
+    outputs: new Set(
+      Object.keys(isObject(rootAction.outputs) ? rootAction.outputs : {})
+    ),
+    sourceFile: "action.yml",
   });
 
   const entries = await fs.readdir(rootDir, { withFileTypes: true });
@@ -367,17 +386,21 @@ async function loadActionSchemas() {
       continue;
     }
 
-    const actionFile = path.join(rootDir, entry.name, 'action.yaml');
+    const actionFile = path.join(rootDir, entry.name, "action.yaml");
     try {
-      const actionContent = normalizeEol(await fs.readFile(actionFile, 'utf8'));
+      const actionContent = normalizeEol(await fs.readFile(actionFile, "utf8"));
       const action = yaml.load(actionContent);
       if (!isObject(action)) {
         continue;
       }
 
       schemas.set(entry.name, {
-        inputs: new Set(Object.keys(isObject(action.inputs) ? action.inputs : {})),
-        outputs: new Set(Object.keys(isObject(action.outputs) ? action.outputs : {})),
+        inputs: new Set(
+          Object.keys(isObject(action.inputs) ? action.inputs : {})
+        ),
+        outputs: new Set(
+          Object.keys(isObject(action.outputs) ? action.outputs : {})
+        ),
         sourceFile: `${entry.name}/action.yaml`,
       });
     } catch {
@@ -393,16 +416,18 @@ async function loadAzdoTaskSchemas() {
 
   for (const relativeSchemaPath of AZDO_TASK_SCHEMA_FILES) {
     const absoluteSchemaPath = path.join(rootDir, relativeSchemaPath);
-    const jsonContent = normalizeEol(await fs.readFile(absoluteSchemaPath, 'utf8'));
+    const jsonContent = normalizeEol(
+      await fs.readFile(absoluteSchemaPath, "utf8")
+    );
     const parsed = JSON.parse(jsonContent);
-    if (!isObject(parsed) || typeof parsed.name !== 'string') {
+    if (!isObject(parsed) || typeof parsed.name !== "string") {
       continue;
     }
 
     const inputs = Array.isArray(parsed.inputs)
       ? new Set(
           parsed.inputs
-            .filter((item) => isObject(item) && typeof item.name === 'string')
+            .filter((item) => isObject(item) && typeof item.name === "string")
             .map((item) => item.name)
         )
       : new Set();
@@ -410,7 +435,7 @@ async function loadAzdoTaskSchemas() {
     const outputs = Array.isArray(parsed.outputVariables)
       ? new Set(
           parsed.outputVariables
-            .filter((item) => isObject(item) && typeof item.name === 'string')
+            .filter((item) => isObject(item) && typeof item.name === "string")
             .map((item) => item.name)
         )
       : new Set();
@@ -458,7 +483,7 @@ function collectAzureOutputReferences(blockText) {
 }
 
 function dedentBlock(blockText) {
-  const lines = blockText.split('\n');
+  const lines = blockText.split("\n");
   const nonEmptyLines = lines.filter((line) => line.trim().length > 0);
   if (nonEmptyLines.length === 0) {
     return blockText;
@@ -488,18 +513,18 @@ function dedentBlock(blockText) {
       while (
         remaining > 0 &&
         index < line.length &&
-        (line[index] === ' ' || line[index] === '\t')
+        (line[index] === " " || line[index] === "\t")
       ) {
         index++;
         remaining--;
       }
       return line.slice(index);
     })
-    .join('\n');
+    .join("\n");
 }
 
 function normalizeYamlForParsing(blockText) {
-  return dedentBlock(blockText).replace(/\t/g, '  ');
+  return dedentBlock(blockText).replace(/\t/g, "  ");
 }
 
 function createError(relativeFilePath, line, message) {
@@ -517,7 +542,7 @@ async function main() {
   let validatedAzdoTasks = 0;
 
   for (const markdownFile of markdownFiles) {
-    const content = normalizeEol(await fs.readFile(markdownFile, 'utf8'));
+    const content = normalizeEol(await fs.readFile(markdownFile, "utf8"));
     const blocks = extractYamlCodeBlocks(content);
     const relativeFilePath = toPosixPath(path.relative(rootDir, markdownFile));
 
@@ -531,8 +556,8 @@ async function main() {
       let parsed;
       const normalizedBlockText = normalizeYamlForParsing(block.text);
       let usedTolerantMode = false;
-      let steps = [];
-      let taskSteps = [];
+      let steps;
+      let taskSteps;
 
       try {
         parsed = yaml.load(normalizedBlockText);
@@ -544,7 +569,8 @@ async function main() {
         taskSteps = findReferencedTasksTolerant(normalizedBlockText);
 
         const hasPotentialAzdoTask =
-          normalizedBlockText.includes('- task:') || normalizedBlockText.includes('task:');
+          normalizedBlockText.includes("- task:") ||
+          normalizedBlockText.includes("task:");
         if (
           steps.length === 0 &&
           taskSteps.length === 0 &&
@@ -552,7 +578,9 @@ async function main() {
         ) {
           const line = block.contentStartLine;
           const message =
-            error instanceof Error ? error.message.split('\n')[0] : 'Invalid YAML block';
+            error instanceof Error
+              ? error.message.split("\n")[0]
+              : "Invalid YAML block";
           errors.push(
             createError(
               relativeFilePath,
@@ -574,12 +602,14 @@ async function main() {
       for (const step of steps) {
         const schema = schemas.get(step.actionName);
         const usesPattern = new RegExp(
-          `uses:\\s*${step.uses.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`
+          `uses:\\s*${step.uses.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`
         );
         const stepLine =
-          typeof step.lineInBlock === 'number'
+          typeof step.lineInBlock === "number"
             ? block.contentStartLine + step.lineInBlock - 1
-            : block.contentStartLine + locateInBlock(normalizedBlockText, usesPattern, 1) - 1;
+            : block.contentStartLine +
+              locateInBlock(normalizedBlockText, usesPattern, 1) -
+              1;
 
         if (!schema) {
           errors.push(
@@ -606,7 +636,11 @@ async function main() {
                 lineInBlock = step.withLines.get(inputName);
               } else {
                 const inputPattern = new RegExp(`\\n\\s*${inputName}:`);
-                lineInBlock = locateInBlock(normalizedBlockText, inputPattern, 1);
+                lineInBlock = locateInBlock(
+                  normalizedBlockText,
+                  inputPattern,
+                  1
+                );
               }
               errors.push(
                 createError(
@@ -626,14 +660,6 @@ async function main() {
 
       for (const taskStep of taskSteps) {
         const taskSchema = azdoTaskSchemas.get(taskStep.taskName);
-        const taskPattern = new RegExp(
-          `task:\\s*${taskStep.task.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`
-        );
-        const taskLine =
-          typeof taskStep.lineInBlock === 'number'
-            ? block.contentStartLine + taskStep.lineInBlock - 1
-            : block.contentStartLine + locateInBlock(normalizedBlockText, taskPattern, 1) - 1;
-
         if (!taskSchema) {
           continue;
         }
@@ -652,7 +678,11 @@ async function main() {
                 lineInBlock = taskStep.inputLines.get(inputName);
               } else {
                 const inputPattern = new RegExp(`\\n\\s*${inputName}:`);
-                lineInBlock = locateInBlock(normalizedBlockText, inputPattern, 1);
+                lineInBlock = locateInBlock(
+                  normalizedBlockText,
+                  inputPattern,
+                  1
+                );
               }
 
               errors.push(
@@ -730,7 +760,8 @@ async function main() {
 }
 
 main().catch((error) => {
-  const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
+  const message =
+    error instanceof Error ? (error.stack ?? error.message) : String(error);
   console.error(`docs sample validation failed: ${message}`);
   process.exitCode = 1;
 });
