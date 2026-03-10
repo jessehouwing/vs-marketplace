@@ -49,7 +49,7 @@ export class GitHubAdapter {
             silent: options?.silent,
             cwd: options?.cwd,
             ignoreReturnCode: true,
-            failOnStdErr: false
+            failOnStdErr: false,
         });
         if (options?.failOnStdErr && result.stderr.trim().length > 0) {
             throw new Error(`Command wrote to stderr: ${result.stderr.trim()}`);
