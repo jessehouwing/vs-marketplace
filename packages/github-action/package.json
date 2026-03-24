@@ -13,7 +13,7 @@
     "@actions/core": "^3.0.0",
     "@actions/exec": "^3.0.0",
     "@actions/io": "^3.0.2",
-    "@azure/identity": "^4.5.0"
+    "@azure/identity": "^4.13.1"
   },
   "devDependencies": {
     "@types/node": "^24.10.13",
