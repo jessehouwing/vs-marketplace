@@ -1,21 +1,20 @@
 {
   "name": "@vs-marketplace/azdo-task",
-  "version": "1.0.0",
+  "version": "6.0.0",
   "description": "Azure Pipelines task for Visual Studio Extension publishing",
   "type": "module",
-  "main": "./dist/main.js",
+  "main": "./build/main.js",
   "scripts": {
-    "build": "tsc",
-    "clean": "rm -rf dist"
+    "build": "tsc -b",
+    "clean": "rm -rf build dist"
   },
   "dependencies": {
-    "@vs-marketplace/core": "^1.0.0",
+    "@vs-marketplace/core": "*",
     "azure-pipelines-task-lib": "^5.2.8",
     "azure-pipelines-tasks-azure-arm-rest": "^3.271.0",
     "azure-pipelines-tasks-artifacts-common": "^2.270.0"
   },
   "devDependencies": {
-    "@types/node": "^24.10.13",
-    "typescript": "^5.9.3"
+    "@types/node": "^24.12.0"
   }
 }

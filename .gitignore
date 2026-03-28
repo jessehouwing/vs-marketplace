@@ -2,6 +2,7 @@
 node_modules/
 
 # Build outputs
+build/
 dist/
 *.js
 *.js.map
@@ -44,6 +45,8 @@ packages/azdo-task/tools/
 .taskkey
 
 
+!packages/azdo-task/dist/
+!packages/azdo-package-task/dist/
 !packages/github-action/dist/
 !packages/core/tools/
 !packages/core/tools/vswhere.exe
