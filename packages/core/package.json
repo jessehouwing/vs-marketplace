@@ -1,16 +1,21 @@
 {
   "name": "@vs-marketplace/core",
-  "version": "1.0.0",
+  "version": "6.0.0",
   "description": "Core logic for Visual Studio Extension publishing",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -b",
     "clean": "rm -rf dist"
   },
   "devDependencies": {
-    "@types/node": "^24.10.13",
-    "typescript": "^5.9.3"
+    "@types/node": "^24.12.0"
   }
 }

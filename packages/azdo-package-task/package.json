@@ -1,7 +1,7 @@
 {
-  "name": "@vs-marketplace/github-action",
+  "name": "@vs-marketplace/azdo-package-task",
   "version": "6.0.0",
-  "description": "GitHub Action for Visual Studio Extension publishing",
+  "description": "Azure Pipelines task for packaging Visual Studio extensions using VSIXUtil",
   "type": "module",
   "main": "./build/main.js",
   "scripts": {
@@ -10,10 +10,7 @@
   },
   "dependencies": {
     "@vs-marketplace/core": "*",
-    "@actions/core": "^3.0.0",
-    "@actions/exec": "^3.0.0",
-    "@actions/io": "^3.0.2",
-    "@azure/identity": "^4.5.0"
+    "azure-pipelines-task-lib": "^5.2.8"
   },
   "devDependencies": {
     "@types/node": "^24.12.0"
