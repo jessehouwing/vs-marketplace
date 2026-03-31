@@ -72,10 +72,7 @@ await updateJsonFile('vss-extension.json', (content) => {
 });
 
 // 3. Update task.json files (Major/Minor/Patch fields)
-const taskJsonPaths = [
-  'packages/azdo-task/task.json',
-  'packages/azdo-package-task/task.json',
-];
+const taskJsonPaths = ['packages/azdo-task/task.json', 'packages/azdo-package-task/task.json'];
 
 for (const p of taskJsonPaths) {
   await updateJsonFile(p, (content) => {
@@ -89,10 +86,7 @@ for (const p of taskJsonPaths) {
 const actionYmlPath = path.join(rootDir, 'action.yml');
 try {
   let content = await fs.readFile(actionYmlPath, 'utf-8');
-  content = content.replace(
-    /(jessehouwing\/vs-marketplace@)[0-9A-Za-z._/-]+/g,
-    `$1v${version}`
-  );
+  content = content.replace(/(jessehouwing\/vs-marketplace@)[0-9A-Za-z._/-]+/g, `$1v${version}`);
   await fs.writeFile(actionYmlPath, content);
   console.log(`✓ action.yml → @v${version}`);
   updatedCount++;
@@ -109,10 +103,7 @@ try {
 const readmePath = path.join(rootDir, 'README.md');
 try {
   let content = await fs.readFile(readmePath, 'utf-8');
-  content = content.replace(
-    /(jessehouwing\/vs-marketplace@)[0-9A-Za-z._/-]+/g,
-    `$1v${version}`
-  );
+  content = content.replace(/(jessehouwing\/vs-marketplace@)[0-9A-Za-z._/-]+/g, `$1v${version}`);
   await fs.writeFile(readmePath, content);
   console.log(`✓ README.md → @v${version}`);
   updatedCount++;

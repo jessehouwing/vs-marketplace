@@ -47,9 +47,7 @@ const targets = [
     outFile: 'packages/azdo-package-task/dist/bundle.js',
     external: ['msalv1', 'msalv2', 'msalv3', 'shelljs'],
     runtimeAliasDependencies: [],
-    bundledModuleResourcePackages: [
-      'azure-pipelines-task-lib',
-    ],
+    bundledModuleResourcePackages: ['azure-pipelines-task-lib'],
     manifestSources: [
       'packages/azdo-package-task/package.json',
       'packages/core/package.json',
@@ -146,8 +144,6 @@ function getResourcePackageForModuleId(moduleId, target) {
 
 function createModuleResourcePathRewritePlugin(target) {
   const configuredPackages = target.bundledModuleResourcePackages || [];
-  const openSslExecutableLookupPattern =
-    /path\.join\(__dirname,\s*['"](openssl(?:\d+\.\d+\.\d+)?)['"],\s*['"]openssl['"]\)/g;
 
   return {
     name: 'rewrite-module-json-resource-paths',
@@ -164,6 +160,9 @@ function createModuleResourcePathRewritePlugin(target) {
       const moduleJsonLookupPattern = /path\.join\(__dirname,\s*['"]module\.json['"]\)/g;
       const libJsonLookupPattern = /path\.join\(__dirname,\s*['"]lib\.json['"]\)/g;
       const packageJsonLookupPattern = /path\.join\(__dirname,\s*['"]package\.json['"]\)/g;
+      const openSslExecutableLookupPattern =
+        /path\.join\(__dirname,\s*['"](openssl(?:\d+\.\d+\.\d+)?)['"],\s*['"]openssl['"]\)/g;
+
       if (
         !moduleJsonLookupPattern.test(code) &&
         !libJsonLookupPattern.test(code) &&
@@ -178,22 +177,22 @@ function createModuleResourcePathRewritePlugin(target) {
 
       const rewrittenCode = code
         .replace(
-          moduleJsonLookupPattern,
+          /path\.join\(__dirname,\s*['"]module\.json['"]\)/g,
           `path.join(__dirname, '__bundle_resources', '${packageName}', 'module.json')`
         )
         .replace(
-          libJsonLookupPattern,
+          /path\.join\(__dirname,\s*['"]lib\.json['"]\)/g,
           `path.join(__dirname, '__bundle_resources', '${packageName}', 'lib.json')`
         )
         .replace(
-          packageJsonLookupPattern,
+          /path\.join\(__dirname,\s*['"]package\.json['"]\)/g,
           `path.join(__dirname, '__bundle_resources', '${packageName}', 'package.json')`
         );
 
       if (packageName === 'azure-pipelines-tasks-azure-arm-rest') {
         return {
           code: rewrittenCode.replace(
-            openSslExecutableLookupPattern,
+            /path\.join\(__dirname,\s*['"](openssl(?:\d+\.\d+\.\d+)?)['"],\s*['"]openssl['"]\)/g,
             (_match, folderName) =>
               `path.join(__dirname, '__bundle_resources', 'azure-pipelines-tasks-azure-arm-rest', '${folderName}', 'openssl')`
           ),
