@@ -1,0 +1,36 @@
+name: 'VS Marketplace - Package'
+description: 'Package a Visual Studio extension into a .vsix file'
+author: 'Jesse Houwing'
+
+branding:
+  icon: 'package'
+  color: 'blue'
+
+inputs:
+  vsix-manifest:
+    description: 'Path to the .vsixmanifest file'
+    required: true
+
+  output-path:
+    description: 'Output path (directory or full .vsix path) for the packaged extension'
+    required: true
+
+  content-dir:
+    description: 'Optional content directory. If omitted, the manifest directory is used.'
+    required: false
+
+outputs:
+  vsix-file:
+    description: 'Full path to the packaged .vsix file'
+    value: ${{ steps.run.outputs.vsix-file }}
+
+runs:
+  using: 'composite'
+  steps:
+    - id: run
+      uses: ../
+      with:
+        operation: package
+        vsix-manifest: ${{ inputs.vsix-manifest }}
+        output-path: ${{ inputs.output-path }}
+        content-dir: ${{ inputs.content-dir }}

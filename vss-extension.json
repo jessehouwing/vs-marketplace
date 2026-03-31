@@ -46,15 +46,6 @@
     },
     {
       "path": "packages/azdo-task/icon.png"
-    },
-    {
-      "path": "packages/azdo-package-task/task.json"
-    },
-    {
-      "path": "packages/azdo-package-task/dist"
-    },
-    {
-      "path": "packages/azdo-package-task/icon.png"
     }
   ],
   "contributions": [
@@ -64,14 +55,6 @@
       "targets": ["ms.vss-distributed-task.tasks"],
       "properties": {
         "name": "packages/azdo-task"
-      }
-    },
-    {
-      "id": "vs-marketplace-package-task",
-      "type": "ms.vss-distributed-task.task",
-      "targets": ["ms.vss-distributed-task.tasks"],
-      "properties": {
-        "name": "packages/azdo-package-task"
       }
     },
     {

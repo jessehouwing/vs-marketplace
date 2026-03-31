@@ -16,7 +16,6 @@
   "workspaces": [
     "packages/core",
     "packages/azdo-task",
-    "packages/azdo-package-task",
     "packages/github-action"
   ],
   "scripts": {
@@ -33,10 +32,10 @@
     "format:check": "prettier --check .",
     "validate:action-inputs": "node Scripts/validate-action-inputs.mjs",
     "validate:action-inputs:check": "node Scripts/validate-action-inputs.mjs --check",
+    "docs:validate-samples": "node Scripts/validate-doc-yaml-samples.mjs",
     "bundle:azdo": "node Scripts/bundle.mjs azdo",
-    "bundle:azdo-package": "node Scripts/bundle.mjs azdo-package",
     "bundle:actions": "node Scripts/bundle.mjs actions",
-    "bundle": "npm run bundle:azdo && npm run bundle:azdo-package && npm run bundle:actions",
+    "bundle": "npm run bundle:azdo && npm run bundle:actions",
     "update-version": "node Scripts/update-version.mjs",
     "clean": "git clean -fdX"
   },

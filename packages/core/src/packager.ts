@@ -110,16 +110,34 @@ export class VsixPackager {
       args.push('/dir', contentDir);
     }
 
-    const exitCode = await this.adapter.exec(vsixUtil, args, {
+    const result = await this.adapter.execOutput(vsixUtil, args, {
       failOnStdErr: false,
+      ignoreReturnCode: true,
     });
 
-    if (exitCode !== 0) {
-      throw new Error(`VSIXUtil.exe CreateVsix failed with exit code ${exitCode}.`);
+    if (result.code !== 0) {
+      throw new Error(`VSIXUtil.exe CreateVsix failed with exit code ${result.code}.`);
     }
 
     this.adapter.info('Extension packaged successfully.');
-    return outputPath;
+
+    const vsixMatch = result.stdout.match(/(\S+\.vsix)/i);
+    if (vsixMatch) {
+      const resolvedPath = vsixMatch[1].trim();
+      if (this.adapter.fileExists(resolvedPath)) {
+        return resolvedPath;
+      }
+    }
+
+    if (/\.vsix$/i.test(outputPath)) {
+      if (this.adapter.fileExists(outputPath)) {
+        return outputPath;
+      }
+    }
+
+    throw new Error(
+      'Could not determine the output .vsix file path. Ensure VSIXUtil.exe supports the /out option.'
+    );
   }
 }
 
@@ -129,11 +147,16 @@ export class VsixPackager {
 export async function packageVsExtension(
   options: PackageOptions,
   adapter: IPlatformAdapter
-): Promise<void> {
+): Promise<string> {
   try {
     const packager = new VsixPackager(adapter);
-    await packager.package(options.vsixManifest, options.outputPath, options.contentDir);
+    const vsixPath = await packager.package(
+      options.vsixManifest,
+      options.outputPath,
+      options.contentDir
+    );
     adapter.setResult(0, 'Visual Studio extension packaged successfully');
+    return vsixPath;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     adapter.setResult(1, message);

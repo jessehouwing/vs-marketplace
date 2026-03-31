@@ -41,27 +41,6 @@ const targets = [
     bundleFormat: 'cjs',
   },
   {
-    name: 'Azure DevOps Package Task',
-    packageDir: 'packages/azdo-package-task',
-    entryPoint: 'packages/azdo-package-task/src/main.ts',
-    outFile: 'packages/azdo-package-task/dist/bundle.js',
-    external: ['msalv1', 'msalv2', 'msalv3', 'shelljs'],
-    runtimeAliasDependencies: [],
-    bundledModuleResourcePackages: ['azure-pipelines-task-lib'],
-    manifestSources: [
-      'packages/azdo-package-task/package.json',
-      'packages/core/package.json',
-      'package.json',
-    ],
-    runtimeAssetCopies: [
-      {
-        from: 'packages/core/tools/vswhere.exe',
-        to: 'tools/vswhere.exe',
-      },
-    ],
-    bundleFormat: 'cjs',
-  },
-  {
     name: 'GitHub Action',
     packageDir: 'packages/github-action',
     entryPoint: 'packages/github-action/src/main.ts',
@@ -84,7 +63,6 @@ const targets = [
 
 const targetSelectors = {
   azdo: (target) => target.packageDir === 'packages/azdo-task',
-  'azdo-package': (target) => target.packageDir === 'packages/azdo-package-task',
   actions: (target) => target.packageDir === 'packages/github-action',
   all: () => true,
 };

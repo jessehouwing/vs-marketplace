@@ -32,6 +32,7 @@ export class MockPlatformAdapter implements IPlatformAdapter {
     stdout: '',
     stderr: '',
   };
+  private execOutputMockResponseQueue: ExecResult[] = [];
   private taskResult: { result: TaskResult; message: string } | null = null;
 
   // Configuration methods for tests
@@ -49,6 +50,10 @@ export class MockPlatformAdapter implements IPlatformAdapter {
 
   setExecOutputMockResponse(result: ExecResult): void {
     this.execOutputMockResponse = result;
+  }
+
+  setExecOutputResponseQueue(responses: ExecResult[]): void {
+    this.execOutputMockResponseQueue = [...responses];
   }
 
   // Getters for assertions
@@ -115,6 +120,9 @@ export class MockPlatformAdapter implements IPlatformAdapter {
 
   async execOutput(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
     this.execOutputCalls.push({ command, args, options });
+    if (this.execOutputMockResponseQueue.length > 0) {
+      return this.execOutputMockResponseQueue.shift()!;
+    }
     return this.execOutputMockResponse;
   }
 
