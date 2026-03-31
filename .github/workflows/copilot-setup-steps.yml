@@ -98,7 +98,7 @@ jobs:
           echo "actionlint version: ${actionlint_version}"
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Install pre-commit hooks
         run: python3 -m pre_commit install --install-hooks
