@@ -121,17 +121,14 @@ export class VsixPackager {
 
     this.adapter.info('Extension packaged successfully.');
 
-    const vsixMatch = result.stdout.match(/(\S+\.vsix)/i);
-    if (vsixMatch) {
-      const resolvedPath = vsixMatch[1].trim();
-      if (this.adapter.fileExists(resolvedPath)) {
-        return resolvedPath;
-      }
-    }
-
     if (/\.vsix$/i.test(outputPath)) {
       if (this.adapter.fileExists(outputPath)) {
         return outputPath;
+      }
+    } else {
+      const matches = await this.adapter.findMatch(outputPath, ['**/*.vsix']);
+      if (matches.length > 0) {
+        return matches[0];
       }
     }
 

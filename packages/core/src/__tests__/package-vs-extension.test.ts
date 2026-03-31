@@ -19,10 +19,10 @@ describe('packageVsExtension', () => {
 
   function setupVsixUtil() {
     adapter.setFileExists(vsixUtil, true);
-    adapter.setFileExists(vsixOutputPath, true);
+    adapter.setFindMatchMockResponse([vsixOutputPath]);
     adapter.setExecOutputResponseQueue([
       { code: 0, stdout: vsixUtil, stderr: '' },
-      { code: 0, stdout: `Created ${vsixOutputPath}\n`, stderr: '' },
+      { code: 0, stdout: '', stderr: '' },
     ]);
   }
 
@@ -109,5 +109,22 @@ describe('packageVsExtension', () => {
     const result = await packageVsExtension(baseOptions, adapter);
 
     expect(result).toBe(vsixOutputPath);
+  });
+
+  it('returns outputPath directly when outputPath ends with .vsix', async () => {
+    const vsixOptions: PackageOptions = {
+      ...baseOptions,
+      outputPath: 'C:\\output\\MyExt.vsix',
+    };
+    adapter.setFileExists(vsixUtil, true);
+    adapter.setFileExists('C:\\output\\MyExt.vsix', true);
+    adapter.setExecOutputResponseQueue([
+      { code: 0, stdout: vsixUtil, stderr: '' },
+      { code: 0, stdout: '', stderr: '' },
+    ]);
+
+    const result = await packageVsExtension(vsixOptions, adapter);
+
+    expect(result).toBe('C:\\output\\MyExt.vsix');
   });
 });
