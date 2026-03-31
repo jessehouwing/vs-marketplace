@@ -56,6 +56,12 @@ export class MockPlatformAdapter implements IPlatformAdapter {
     this.execOutputMockResponseQueue = [...responses];
   }
 
+  private findMatchMockResponse: string[] = [];
+
+  setFindMatchMockResponse(files: string[]): void {
+    this.findMatchMockResponse = files;
+  }
+
   // Getters for assertions
   getSecrets(): Set<string> {
     return this.secrets;
@@ -128,6 +134,10 @@ export class MockPlatformAdapter implements IPlatformAdapter {
 
   fileExists(path: string): boolean {
     return this.fileExistsMap.get(path) ?? false;
+  }
+
+  async findMatch(_root: string, _patterns: string[]): Promise<string[]> {
+    return this.findMatchMockResponse;
   }
 
   setResult(result: TaskResult, message: string): void {

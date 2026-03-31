@@ -9,11 +9,12 @@
     "clean": "rm -rf build dist"
   },
   "dependencies": {
-    "@vs-marketplace/core": "*",
     "@actions/core": "^3.0.0",
     "@actions/exec": "^3.0.0",
+    "@actions/glob": "^0.6.1",
     "@actions/io": "^3.0.2",
-    "@azure/identity": "^4.5.0"
+    "@azure/identity": "^4.5.0",
+    "@vs-marketplace/core": "*"
   },
   "devDependencies": {
     "@types/node": "^24.12.0"
