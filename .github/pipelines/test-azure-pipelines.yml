@@ -1,0 +1,132 @@
+# Test Azure Pipelines
+#
+# Triggered by the release workflow to validate the vs-marketplace Azure
+# Pipelines task against a minimal Visual Studio extension sample. Tests both
+# the Package and Publish operations for a single auth + OS scenario. The
+# matrix fan-out lives in GitHub Actions so each scenario is visible directly
+# in the Actions summary.
+#
+# Required service connections:
+#   MarketplacePatConnection     - PAT service connection (VsMarketplacePublishing type)
+#   MarketplaceAzureRmConnection - Azure RM (OIDC) service connection
+#
+# Required parameters per run:
+#   vmImage        - Hosted agent image (windows-latest only; VSIXUtil and VsixPublisher require Windows)
+#   connectionType - PAT | AzureRM
+
+name: test-$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+parameters:
+  - name: publisherId
+    type: string
+    default: jessehouwing
+  - name: vmImage
+    type: string
+    default: windows-latest
+  - name: connectionType
+    type: string
+    default: PAT
+  - name: azureRmConnection
+    type: string
+    default: fdeb6c4d-4557-4355-a9f8-594ac4fb3db1
+  - name: marketplaceServiceConnectionName
+    type: string
+    default: ca702db9-f203-4430-82a7-02109ac28c33
+
+stages:
+  - stage: Test
+    displayName: Test Azure Pipelines
+
+    jobs:
+      - job: Test
+        displayName: Test (${{ parameters.connectionType }}, ${{ parameters.vmImage }})
+        pool:
+          vmImage: ${{ parameters.vmImage }}
+        steps:
+          - checkout: self
+
+          # For PAT matrix entries, acquire a short-lived marketplace token at
+          # runtime from the OIDC-backed Azure RM connection so no PAT secret is
+          # stored. Resolve the VsMarketplacePublishing service connection by name
+          # or GUID, then overwrite its password auth parameter with the token.
+          - task: AzureCLI@2
+            displayName: Get Azure DevOps bearer token
+            condition: and(succeeded(), eq('${{ parameters.connectionType }}', 'PAT'))
+            env:
+              MARKETPLACESERVICECONNECTIONNAME: ${{ parameters.marketplaceServiceConnectionName }}
+            inputs:
+              azureSubscription: ${{ parameters.azureRmConnection }}
+              allowNoSubscriptions: true
+              scriptType: pscore
+              useGlobalConfig: true
+              scriptLocation: inlineScript
+              inlineScript: |
+                $organizationUrl = $env:SYSTEM_COLLECTIONURI.TrimEnd('/')
+                $projectName = $env:SYSTEM_TEAMPROJECT
+                $connectionName = $env:MARKETPLACESERVICECONNECTIONNAME
+                $endpointType = 'VsMarketplacePublishing'
+
+                if (-not $connectionName) {
+                  throw 'MARKETPLACESERVICECONNECTIONNAME is required'
+                }
+
+                $parsedGuid = [guid]::Empty
+                if ([guid]::TryParse($connectionName, [ref]$parsedGuid)) {
+                  $marketplaceServiceConnectionId = $parsedGuid.ToString()
+                }
+                else {
+                  $escapedProject = [uri]::EscapeDataString($projectName)
+                  $escapedName = [uri]::EscapeDataString($connectionName)
+                  $escapedType = [uri]::EscapeDataString($endpointType)
+                  $endpointUrl = "$organizationUrl/$escapedProject/_apis/serviceendpoint/endpoints?endpointNames=$escapedName&type=$escapedType&api-version=7.1"
+
+                  $endpointResponse = az rest --method get --uri $endpointUrl --resource 499b84ac-1321-427f-aa17-267ca6975798
+                  $endpointJson = $endpointResponse | ConvertFrom-Json
+                  $matchingEndpoints = @(
+                    $endpointJson.value | Where-Object {
+                      $_.name -eq $connectionName -and $_.type -eq $endpointType
+                    }
+                  )
+
+                  if ($matchingEndpoints.Count -ne 1) {
+                    throw "Expected exactly one service connection named '$connectionName' with type '$endpointType' in project '$projectName', found $($matchingEndpoints.Count)"
+                  }
+
+                  $marketplaceServiceConnectionId = $matchingEndpoints[0].id
+                }
+
+                $token = az account get-access-token `
+                  --resource 499b84ac-1321-427f-aa17-267ca6975798 `
+                  --query accessToken --output tsv
+                if (-not $token) {
+                  throw 'Failed to acquire Azure DevOps bearer token'
+                }
+
+                Write-Host "##vso[task.setvariable variable=marketplaceServiceConnectionId]$marketplaceServiceConnectionId"
+                Write-Host "Resolved marketplace service connection id: $marketplaceServiceConnectionId"
+                Write-Host "##vso[task.setsecret]$token"
+                Write-Host "##vso[task.setendpoint id=$marketplaceServiceConnectionId;field=authParameter;key=password]$token"
+
+          # --- Package: build the .vsix from the minimal VS extension manifest ---
+          - task: vs-marketplace@6
+            name: packageStep
+            displayName: Package VS extension
+            inputs:
+              operation: Package
+              vsixManifest: tests/sample-extension/source.extension.vsixmanifest
+              outputPath: $(Build.ArtifactStagingDirectory)
+
+          # --- Publish: push the packaged .vsix to the Visual Studio Marketplace ---
+          - task: vs-marketplace@6
+            displayName: Publish VS extension
+            inputs:
+              operation: Publish
+              connectionType: ${{ parameters.connectionType }}
+              connectionNamePAT: ${{ parameters.marketplaceServiceConnectionName }}
+              connectionNameAzureRM: ${{ parameters.azureRmConnection }}
+              vsixFile: $(packageStep.vsixFile)
+              manifestFile: tests/sample-extension/publish-manifest.json
+              publisherId: ${{ parameters.publisherId }}

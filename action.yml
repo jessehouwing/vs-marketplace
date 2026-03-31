@@ -22,16 +22,16 @@ inputs:
     required: false
 
   vsix-file:
-    description: 'Path to the VSIX file to publish'
-    required: true
+    description: 'Path to the VSIX file to publish (required when operation is publish)'
+    required: false
 
   manifest-file:
-    description: 'Path to the publish manifest file'
-    required: true
+    description: 'Path to the publish manifest file (required when operation is publish)'
+    required: false
 
   publisher-id:
-    description: 'Publisher ID for the extension'
-    required: true
+    description: 'Publisher ID for the extension (required when operation is publish)'
+    required: false
 
   ignore-warnings:
     description: 'Comma or newline-separated list of warnings to ignore (e.g., VSIXValidatorWarning01,VSIXValidatorWarning02)'
@@ -55,4 +55,4 @@ outputs:
 
 runs:
   using: 'node20'
-  main: 'dist/bundle.js'
+  main: 'packages/github-action/dist/bundle.js'

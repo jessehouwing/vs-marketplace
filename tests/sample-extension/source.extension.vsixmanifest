@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011">
+  <Metadata>
+    <Identity Id="vs-marketplace-test" Version="1.0.0" Language="en-US" Publisher="jessehouwing" />
+    <DisplayName>VS Marketplace Test Extension</DisplayName>
+    <Description>Minimal test extension for validating the VS Marketplace publish pipeline.</Description>
+    <Tags>test</Tags>
+    <GalleryFlags>Private</GalleryFlags>
+  </Metadata>
+  <Installation>
+    <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[17.0, 18.0)" />
+  </Installation>
+  <Dependencies />
+  <Prerequisites />
+  <Assets />
+</PackageManifest>

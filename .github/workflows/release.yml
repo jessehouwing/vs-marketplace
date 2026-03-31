@@ -6,6 +6,9 @@ name: Release
 #   AZURE_CLIENT_ID       - Azure AD app client ID for OIDC authentication
 #   AZURE_TENANT_ID       - Azure AD tenant ID for OIDC authentication
 #
+# Required repository variables:
+#   AZDO_TEST_PIPELINE_NAME  - Name of the Azure DevOps test pipeline to trigger
+#
 # Required environments (with protection rules):
 #   publisher-jessehouwing  - For preview and production releases (requires approval for production)
 #
@@ -239,11 +242,172 @@ jobs:
             https://dev.azure.com/jessehouwing
 
   # ---------------------------------------------------------------------------
-  # Job 3: Production release to marketplace (requires environment approval)
+  # Job 3: Test GitHub Actions
+  # Runs the reusable test workflow against the prepared release branch.
+  # Tests the package and publish operations with PAT and OIDC auth.
+  # ---------------------------------------------------------------------------
+  test-github-actions:
+    name: Test GitHub Actions
+    needs: prepare-release
+    uses: ./.github/workflows/release-test-github-actions.yml
+    with:
+      ref: release/v${{ needs.prepare-release.outputs.version }}
+    secrets: inherit
+    permissions:
+      contents: read
+      id-token: write
+
+  # ---------------------------------------------------------------------------
+  # Job 4: Test Azure Pipelines
+  # Triggers the Azure DevOps test pipeline and waits for completion.
+  # Tests the Package and Publish operations with PAT and AzureRM auth.
+  # Requires preview-release to have installed the task in the test org first.
+  # ---------------------------------------------------------------------------
+  test-azure-pipelines:
+    name: Test Azure Pipelines
+    needs: [prepare-release, preview-release]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - connectionType: PAT
+          - connectionType: AzureRM
+    environment:
+      name: publisher-jessehouwing
+      url: ${{ steps.run-azdo-pipeline.outputs.pipeline_run_url }}
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Azure login (OIDC)
+        uses: azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43 #v3.0.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+
+      - name: Get Azure DevOps access token
+        id: get-azdo-token
+        shell: pwsh
+        run: |
+          $token = az account get-access-token `
+            --resource 499b84ac-1321-427f-aa17-267ca6975798 `
+            --query accessToken --output tsv
+          Write-Host "::add-mask::$token"
+          echo "azdo_token=$token" >> $env:GITHUB_OUTPUT
+
+      - name: Run Azure DevOps test pipeline
+        id: run-azdo-pipeline
+        env:
+          AZURE_DEVOPS_EXT_PAT: ${{ steps.get-azdo-token.outputs.azdo_token }}
+          AZDO_PIPELINE_NAME: ${{ vars.AZDO_TEST_PIPELINE_NAME }}
+          RELEASE_VERSION: ${{ needs.prepare-release.outputs.version }}
+          AZDO_ORGANIZATION: https://dev.azure.com/jessehouwing
+          AZDO_PROJECT: azure-devops-extensions
+          TEST_CONNECTION_TYPE: ${{ matrix.connectionType }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          function Invoke-Az {
+            param(
+              [Parameter(Mandatory = $true)]
+              [string[]]$Arguments
+            )
+            $output = & az @Arguments
+            if ($LASTEXITCODE -ne 0) {
+              throw "Azure CLI command failed: az $($Arguments -join ' ')"
+            }
+            return $output
+          }
+
+          $organization = $env:AZDO_ORGANIZATION
+          $project = $env:AZDO_PROJECT
+          $pipelineName = $env:AZDO_PIPELINE_NAME
+          $branch = "release/v$($env:RELEASE_VERSION)"
+          $timeoutSeconds = 1800
+          $intervalSeconds = 30
+
+          if (-not $organization) { throw 'AZDO_ORGANIZATION is empty.' }
+          if (-not $project) { throw 'AZDO_PROJECT is empty.' }
+          if (-not $pipelineName) {
+            throw 'AZDO_PIPELINE_NAME is empty. Set repository variable AZDO_TEST_PIPELINE_NAME.'
+          }
+          if (-not $env:RELEASE_VERSION) {
+            throw 'RELEASE_VERSION is empty. Prepare release output is missing.'
+          }
+
+          switch ($env:TEST_CONNECTION_TYPE) {
+            'PAT'     { }
+            'AzureRM' { }
+            default   { throw "Unsupported TEST_CONNECTION_TYPE: $($env:TEST_CONNECTION_TYPE)" }
+          }
+
+          Invoke-Az -Arguments @('config', 'set', 'extension.use_dynamic_install=yes_without_prompt') | Out-Null
+          Invoke-Az -Arguments @('extension', 'add', '--name', 'azure-devops', '--upgrade', '--only-show-errors') | Out-Null
+
+          if (-not $env:AZURE_DEVOPS_EXT_PAT) {
+            throw 'AZURE_DEVOPS_EXT_PAT is not set. Token step must run before this step.'
+          }
+
+          Invoke-Az -Arguments @('config', 'set', 'core.enable_secure_credential_store=false') | Out-Null
+          Invoke-Az -Arguments @('devops', 'configure', '--defaults', "organization=$organization", "project=$project") | Out-Null
+
+          $runId = (Invoke-Az -Arguments @(
+            'pipelines', 'run',
+            '--name', $pipelineName,
+            '--branch', $branch,
+            '--project', $project,
+            '--parameters',
+            "connectionType=$($env:TEST_CONNECTION_TYPE)",
+            '--query', 'id',
+            '--output', 'tsv'
+          )).Trim()
+
+          if (-not $runId) {
+            throw 'Failed to trigger Azure DevOps pipeline run.'
+          }
+
+          $runUrl = "$organization/$project/_build/results?buildId=$runId&view=results"
+          "pipeline_run_url=$runUrl" >> $env:GITHUB_OUTPUT
+
+          Write-Host "Triggered pipeline run: $runId"
+          Write-Host "Pipeline run URL: $runUrl"
+          "- Azure Pipelines run: [$runId]($runUrl)" >> $env:GITHUB_STEP_SUMMARY
+
+          $elapsed = 0
+          while ($elapsed -lt $timeoutSeconds) {
+            $runJson = Invoke-Az -Arguments @('pipelines', 'runs', 'show', '--id', $runId, '--project', $project, '--output', 'json')
+            $run = $runJson | ConvertFrom-Json
+
+            $status = if ($null -ne $run.status) { [string]$run.status } else { '' }
+            $result = if ($null -ne $run.result) { [string]$run.result } else { '' }
+
+            Write-Host "Pipeline status: $status, result: $result (${elapsed}s elapsed)"
+
+            if ($status -eq 'completed') {
+              if ($result -eq 'succeeded') {
+                Write-Host 'Pipeline succeeded'
+                exit 0
+              }
+              throw "Pipeline failed with result: $result"
+            }
+
+            Start-Sleep -Seconds $intervalSeconds
+            $elapsed += $intervalSeconds
+          }
+
+          throw "Pipeline timed out after ${timeoutSeconds}s"
+
+  # ---------------------------------------------------------------------------
+  # Job 5: Production release to marketplace (requires environment approval)
   # ---------------------------------------------------------------------------
   publish-production:
     name: Publish to marketplace
-    needs: [prepare-release, preview-release]
+    needs: [prepare-release, preview-release, test-github-actions, test-azure-pipelines]
     runs-on: windows-latest
     environment:
       name: publisher-jessehouwing
@@ -287,11 +451,11 @@ jobs:
           vsix-file: ${{ steps.publish.outputs.vsix-file }}
 
   # ---------------------------------------------------------------------------
-  # Job 4: Create GitHub draft release
+  # Job 6: Create GitHub draft release
   # ---------------------------------------------------------------------------
   create-release:
     name: Create GitHub draft release
-    needs: [prepare-release, preview-release]
+    needs: [prepare-release, preview-release, test-github-actions, test-azure-pipelines]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -362,7 +526,7 @@ jobs:
             $vsixFile
 
   # ---------------------------------------------------------------------------
-  # Job 5: Publish GitHub release (after marketplace production publish)
+  # Job 7: Publish GitHub release (after marketplace production publish)
   # ---------------------------------------------------------------------------
   publish-github-release:
     name: Publish GitHub release
@@ -401,7 +565,7 @@ jobs:
           git push origin $majorMinor --force
 
   # ---------------------------------------------------------------------------
-  # Job 6: Cleanup release branch
+  # Job 8: Cleanup release branch
   # ---------------------------------------------------------------------------
   cleanup:
     name: Cleanup release branch
