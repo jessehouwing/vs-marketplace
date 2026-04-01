@@ -1,0 +1,12 @@
+{
+  "name": "@vs-marketplace/azdo-task-runtime",
+  "private": true,
+  "license": "MIT",
+  "type": "commonjs",
+  "dependencies": {
+    "msalv1": "npm:@azure/msal-node@^1.18.4",
+    "msalv2": "npm:@azure/msal-node@^2.7.0",
+    "msalv3": "npm:@azure/msal-node@^3.5.3",
+    "shelljs": "0.10.0"
+  }
+}
