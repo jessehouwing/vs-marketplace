@@ -1,3 +1,4 @@
+import path from 'path';
 import { packageVsExtension, PackageOptions } from '../packager.js';
 import { TaskResult } from '../platform-adapter.js';
 import { MockPlatformAdapter } from './mock-platform-adapter.js';
@@ -26,7 +27,7 @@ describe('packageVsExtension', () => {
     ]);
   }
 
-  it('calls vswhere then VSIXUtil CreateVsix on success', async () => {
+  it('calls vswhere then VSIXUtil package on success', async () => {
     setupVsixUtil();
 
     await packageVsExtension(baseOptions, adapter);
@@ -38,8 +39,9 @@ describe('packageVsExtension', () => {
       'VSSDK\\VisualStudioIntegration\\Tools\\Bin\\VSIXUtil.exe'
     );
     expect(outputCalls[1].command).toBe(vsixUtil);
-    expect(outputCalls[1].args[0]).toBe('CreateVsix');
-    expect(outputCalls[1].args[1]).toBe(baseOptions.vsixManifest);
+    expect(outputCalls[1].args[0]).toBe('package');
+    expect(outputCalls[1].args).toContain('-sourceManifest');
+    expect(outputCalls[1].args).toContain(baseOptions.vsixManifest);
   });
 
   it('passes output path to VSIXUtil', async () => {
@@ -48,32 +50,77 @@ describe('packageVsExtension', () => {
     await packageVsExtension(baseOptions, adapter);
 
     const outputCalls = adapter.getExecOutputCalls();
-    expect(outputCalls[1].args).toContain('/out');
+    expect(outputCalls[1].args).toContain('-outputPath');
     expect(outputCalls[1].args).toContain(baseOptions.outputPath);
   });
 
-  it('passes content dir when provided', async () => {
+  it('passes files manifest when provided', async () => {
     setupVsixUtil();
 
     const options: PackageOptions = {
       ...baseOptions,
-      contentDir: 'C:\\extension-content',
+      filesManifest: 'C:\\extension-content\\files.json',
     };
 
     await packageVsExtension(options, adapter);
 
     const outputCalls = adapter.getExecOutputCalls();
-    expect(outputCalls[1].args).toContain('/dir');
-    expect(outputCalls[1].args).toContain(options.contentDir);
+    expect(outputCalls[1].args).toContain('-files');
+    expect(outputCalls[1].args).toContain(options.filesManifest);
   });
 
-  it('does not pass content dir when not provided', async () => {
+  it('does not pass files manifest when not provided', async () => {
     setupVsixUtil();
 
     await packageVsExtension(baseOptions, adapter);
 
     const outputCalls = adapter.getExecOutputCalls();
-    expect(outputCalls[1].args).not.toContain('/dir');
+    expect(outputCalls[1].args).not.toContain('-files');
+  });
+
+  it('passes working directory as cwd to VSIXUtil exec call', async () => {
+    const options: PackageOptions = {
+      ...baseOptions,
+      workingDirectory: 'C:\\my-extension',
+    };
+    setupVsixUtil();
+
+    await packageVsExtension(options, adapter);
+
+    const outputCalls = adapter.getExecOutputCalls();
+    expect(outputCalls[1].options?.cwd).toBe('C:\\my-extension');
+  });
+
+  it('does not set cwd when working directory is not specified', async () => {
+    setupVsixUtil();
+
+    await packageVsExtension(baseOptions, adapter);
+
+    const outputCalls = adapter.getExecOutputCalls();
+    expect(outputCalls[1].options?.cwd).toBeUndefined();
+  });
+
+  it('resolves relative outputPath ending in .vsix against workingDirectory for file existence check', async () => {
+    const workingDirectory = '/work/extension';
+    const relativeOutputPath = 'dist/MyExt.vsix';
+    const resolvedPath = path.join(workingDirectory, relativeOutputPath);
+
+    const options: PackageOptions = {
+      vsixManifest: '/work/extension/source.extension.vsixmanifest',
+      outputPath: relativeOutputPath,
+      workingDirectory,
+    };
+
+    adapter.setFileExists(vsixUtil, true);
+    adapter.setFileExists(resolvedPath, true);
+    adapter.setExecOutputResponseQueue([
+      { code: 0, stdout: vsixUtil, stderr: '' },
+      { code: 0, stdout: '', stderr: '' },
+    ]);
+
+    const result = await packageVsExtension(options, adapter);
+
+    expect(result).toBe(resolvedPath);
   });
 
   it('sets task result to Succeeded on success', async () => {

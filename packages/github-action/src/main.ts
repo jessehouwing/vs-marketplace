@@ -18,12 +18,14 @@ async function run(): Promise<void> {
     if (operation === 'package') {
       const vsixManifest = core.getInput('vsix-manifest', { required: true });
       const outputPath = core.getInput('output-path', { required: true });
-      const contentDir = core.getInput('content-dir', { required: false }) || undefined;
+      const filesManifest = core.getInput('files-manifest', { required: false }) || undefined;
+      const workingDirectory = core.getInput('working-directory', { required: false }) || undefined;
 
       const options: PackageOptions = {
         vsixManifest,
         outputPath,
-        contentDir,
+        filesManifest,
+        workingDirectory,
       };
 
       operationInvoked = true;
@@ -59,6 +61,7 @@ async function run(): Promise<void> {
       const manifestFile = core.getInput('manifest-file', { required: true });
       const publisherId = core.getInput('publisher-id', { required: true });
       const ignoreWarnings = core.getInput('ignore-warnings', { required: false });
+      const workingDirectory = core.getInput('working-directory', { required: false }) || undefined;
 
       const options: PublishOptions = {
         connectTo: authType === 'pat' ? 'pat' : 'oidc',
@@ -67,6 +70,7 @@ async function run(): Promise<void> {
         manifestFile,
         publisherId,
         ignoreWarnings: ignoreWarnings || undefined,
+        workingDirectory,
       };
 
       operationInvoked = true;

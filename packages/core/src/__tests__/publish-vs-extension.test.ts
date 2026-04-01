@@ -180,6 +180,30 @@ describe('publishVsExtension', () => {
     expect(publishCall?.args).toContain('Warning01,Warning02');
   });
 
+  it('should pass working directory as cwd to login and publish exec calls', async () => {
+    options.workingDirectory = 'C:\\my-extension';
+
+    await publishVsExtension(options, adapter);
+
+    const execCalls = adapter.getExecCalls();
+    const loginCall = execCalls.find((call) => call.args.includes('login'));
+    const publishCall = execCalls.find((call) => call.args.includes('publish'));
+
+    expect(loginCall?.options?.cwd).toBe('C:\\my-extension');
+    expect(publishCall?.options?.cwd).toBe('C:\\my-extension');
+  });
+
+  it('should not set cwd when working directory is not specified', async () => {
+    await publishVsExtension(options, adapter);
+
+    const execCalls = adapter.getExecCalls();
+    const loginCall = execCalls.find((call) => call.args.includes('login'));
+    const publishCall = execCalls.find((call) => call.args.includes('publish'));
+
+    expect(loginCall?.options?.cwd).toBeUndefined();
+    expect(publishCall?.options?.cwd).toBeUndefined();
+  });
+
   it('should handle error objects with message property', async () => {
     adapter.setFileExists(
       'C:\\Program Files (x86)\\Microsoft Visual Studio\\Installer\\vswhere.exe',
