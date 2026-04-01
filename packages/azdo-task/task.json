@@ -124,7 +124,6 @@
     },
     {
       "name": "filesManifest",
-      "aliases": ["contentDir"],
       "type": "filePath",
       "label": "Files manifest",
       "defaultValue": "",

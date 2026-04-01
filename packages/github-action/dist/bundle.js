@@ -57875,13 +57875,18 @@ class VsixPackager {
             throw new Error(`VSIXUtil.exe package failed with exit code ${result.code}.`);
         }
         this.adapter.info('Extension packaged successfully.');
-        if (/\.vsix$/i.test(outputPath)) {
-            if (this.adapter.fileExists(outputPath)) {
-                return outputPath;
+        // If workingDirectory is set and outputPath is relative, resolve it against workingDirectory
+        // because VSIXUtil interprets relative paths from its cwd (workingDirectory).
+        const resolvedOutputPath = this.workingDirectory && !path__default.isAbsolute(outputPath)
+            ? path__default.resolve(this.workingDirectory, outputPath)
+            : outputPath;
+        if (/\.vsix$/i.test(resolvedOutputPath)) {
+            if (this.adapter.fileExists(resolvedOutputPath)) {
+                return resolvedOutputPath;
             }
         }
         else {
-            const matches = await this.adapter.findMatch(outputPath, ['**/*.vsix']);
+            const matches = await this.adapter.findMatch(resolvedOutputPath, ['**/*.vsix']);
             if (matches.length > 0) {
                 return matches[0];
             }
@@ -60812,9 +60817,7 @@ async function run() {
         if (operation === 'package') {
             const vsixManifest = getInput('vsix-manifest', { required: true });
             const outputPath = getInput('output-path', { required: true });
-            const filesManifest = getInput('files-manifest', { required: false }) ||
-                getInput('content-dir', { required: false }) ||
-                undefined;
+            const filesManifest = getInput('files-manifest', { required: false }) || undefined;
             const workingDirectory = getInput('working-directory', { required: false }) || undefined;
             const options = {
                 vsixManifest,

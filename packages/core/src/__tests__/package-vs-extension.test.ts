@@ -1,3 +1,4 @@
+import path from 'path';
 import { packageVsExtension, PackageOptions } from '../packager.js';
 import { TaskResult } from '../platform-adapter.js';
 import { MockPlatformAdapter } from './mock-platform-adapter.js';
@@ -97,6 +98,29 @@ describe('packageVsExtension', () => {
 
     const outputCalls = adapter.getExecOutputCalls();
     expect(outputCalls[1].options?.cwd).toBeUndefined();
+  });
+
+  it('resolves relative outputPath ending in .vsix against workingDirectory for file existence check', async () => {
+    const workingDirectory = '/work/extension';
+    const relativeOutputPath = 'dist/MyExt.vsix';
+    const resolvedPath = path.join(workingDirectory, relativeOutputPath);
+
+    const options: PackageOptions = {
+      vsixManifest: '/work/extension/source.extension.vsixmanifest',
+      outputPath: relativeOutputPath,
+      workingDirectory,
+    };
+
+    adapter.setFileExists(vsixUtil, true);
+    adapter.setFileExists(resolvedPath, true);
+    adapter.setExecOutputResponseQueue([
+      { code: 0, stdout: vsixUtil, stderr: '' },
+      { code: 0, stdout: '', stderr: '' },
+    ]);
+
+    const result = await packageVsExtension(options, adapter);
+
+    expect(result).toBe(resolvedPath);
   });
 
   it('sets task result to Succeeded on success', async () => {

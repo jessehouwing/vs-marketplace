@@ -131,12 +131,19 @@ export class VsixPackager {
 
     this.adapter.info('Extension packaged successfully.');
 
-    if (/\.vsix$/i.test(outputPath)) {
-      if (this.adapter.fileExists(outputPath)) {
-        return outputPath;
+    // If workingDirectory is set and outputPath is relative, resolve it against workingDirectory
+    // because VSIXUtil interprets relative paths from its cwd (workingDirectory).
+    const resolvedOutputPath =
+      this.workingDirectory && !path.isAbsolute(outputPath)
+        ? path.resolve(this.workingDirectory, outputPath)
+        : outputPath;
+
+    if (/\.vsix$/i.test(resolvedOutputPath)) {
+      if (this.adapter.fileExists(resolvedOutputPath)) {
+        return resolvedOutputPath;
       }
     } else {
-      const matches = await this.adapter.findMatch(outputPath, ['**/*.vsix']);
+      const matches = await this.adapter.findMatch(resolvedOutputPath, ['**/*.vsix']);
       if (matches.length > 0) {
         return matches[0];
       }

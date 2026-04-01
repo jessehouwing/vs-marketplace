@@ -18,10 +18,7 @@ async function run(): Promise<void> {
     if (operation === 'package') {
       const vsixManifest = core.getInput('vsix-manifest', { required: true });
       const outputPath = core.getInput('output-path', { required: true });
-      const filesManifest =
-        core.getInput('files-manifest', { required: false }) ||
-        core.getInput('content-dir', { required: false }) ||
-        undefined;
+      const filesManifest = core.getInput('files-manifest', { required: false }) || undefined;
       const workingDirectory = core.getInput('working-directory', { required: false }) || undefined;
 
       const options: PackageOptions = {
