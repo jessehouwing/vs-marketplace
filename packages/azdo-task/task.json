@@ -1,7 +1,7 @@
 {
   "id": "17654839-813a-4e5f-a724-223a68ec647c",
   "name": "vs-marketplace",
-  "friendlyName": "VS Marketplace - Publish Extension",
+  "friendlyName": "VS Marketplace",
   "description": "Publish Visual Studio extension to the Visual Studio Marketplace",
   "author": "Jesse Houwing",
   "helpMarkDown": "[More Information](https://github.com/jessehouwing/vs-marketplace)",
@@ -16,8 +16,20 @@
   "demands": ["visualstudio"],
   "minimumAgentVersion": "2.206.1",
   "groups": [],
-  "instanceNameFormat": "Publish Visual Studio Extension",
+  "instanceNameFormat": "$(operation) Visual Studio Extension",
   "inputs": [
+    {
+      "name": "operation",
+      "type": "pickList",
+      "label": "Operation",
+      "required": true,
+      "defaultValue": "Publish",
+      "helpMarkDown": "The operation to perform:\n\n- **Publish**: Publish a VSIX to the Visual Studio Marketplace\n- **Package**: Package a Visual Studio extension into a VSIX file",
+      "options": {
+        "Publish": "Publish",
+        "Package": "Package"
+      }
+    },
     {
       "name": "connectionType",
       "type": "pickList",
@@ -29,7 +41,8 @@
         "PAT": "Visual Studio Marketplace (PAT)",
         "WorkloadIdentity": "Visual Studio Marketplace (WorkloadIdentity)",
         "AzureRM": "Azure Resource Manager (OIDC)"
-      }
+      },
+      "visibleRule": "operation = Publish"
     },
     {
       "name": "connectionNamePAT",
@@ -61,7 +74,8 @@
       "label": "VSIX file",
       "defaultValue": "",
       "required": true,
-      "helpMarkDown": "VSIX file to publish."
+      "helpMarkDown": "VSIX file to publish.",
+      "visibleRule": "operation = Publish"
     },
     {
       "name": "manifestFile",
@@ -69,7 +83,8 @@
       "label": "Manifest file",
       "defaultValue": "",
       "required": true,
-      "helpMarkDown": "Path for the publish manifest file. [More information](https://docs.microsoft.com/en-us/visualstudio/extensibility/walkthrough-publishing-a-visual-studio-extension-via-command-line)"
+      "helpMarkDown": "Path for the publish manifest file. [More information](https://docs.microsoft.com/en-us/visualstudio/extensibility/walkthrough-publishing-a-visual-studio-extension-via-command-line)",
+      "visibleRule": "operation = Publish"
     },
     {
       "name": "publisherId",
@@ -77,7 +92,8 @@
       "label": "Publisher ID",
       "defaultValue": "",
       "required": true,
-      "helpMarkDown": "Extension publisher ID."
+      "helpMarkDown": "Extension publisher ID.",
+      "visibleRule": "operation = Publish"
     },
     {
       "name": "ignoreWarnings",
@@ -85,7 +101,41 @@
       "label": "Warnings to ignore",
       "defaultValue": "",
       "helpMarkDown": "List of warnings to ignore when publishing an extension (e.g., \"VSIXValidatorWarning01,VSIXValidatorWarning02\").",
-      "required": false
+      "required": false,
+      "visibleRule": "operation = Publish"
+    },
+    {
+      "name": "vsixManifest",
+      "type": "filePath",
+      "label": "VSIX Manifest file",
+      "defaultValue": "",
+      "required": true,
+      "helpMarkDown": "Path to the `.vsixmanifest` file that describes the extension to package.",
+      "visibleRule": "operation = Package"
+    },
+    {
+      "name": "outputPath",
+      "type": "filePath",
+      "label": "Output path",
+      "defaultValue": "$(Build.ArtifactStagingDirectory)",
+      "required": true,
+      "helpMarkDown": "The output path (directory or full `.vsix` file path) for the packaged extension.",
+      "visibleRule": "operation = Package"
+    },
+    {
+      "name": "contentDir",
+      "type": "filePath",
+      "label": "Content directory",
+      "defaultValue": "",
+      "required": false,
+      "helpMarkDown": "Optional path to the directory containing the extension content files. If omitted, the directory of the manifest file is used.",
+      "visibleRule": "operation = Package"
+    }
+  ],
+  "outputVariables": [
+    {
+      "name": "vsixFile",
+      "description": "Full path to the packaged `.vsix` file. Only set when operation is Package."
     }
   ],
   "execution": {

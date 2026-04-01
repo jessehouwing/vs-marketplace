@@ -1,0 +1,46 @@
+name: 'VS Marketplace - Publish'
+description: 'Publish a Visual Studio extension to the Visual Studio Marketplace'
+author: 'Jesse Houwing'
+
+branding:
+  icon: 'upload-cloud'
+  color: 'blue'
+
+inputs:
+  auth-type:
+    description: 'Authentication type (pat or oidc)'
+    required: false
+    default: 'pat'
+
+  token:
+    description: 'Personal Access Token for Visual Studio Marketplace (required when auth-type is pat)'
+    required: false
+
+  vsix-file:
+    description: 'Path to the VSIX file to publish'
+    required: true
+
+  manifest-file:
+    description: 'Path to the publish manifest file'
+    required: true
+
+  publisher-id:
+    description: 'Publisher ID for the extension'
+    required: true
+
+  ignore-warnings:
+    description: 'Comma or newline-separated list of warnings to ignore (e.g., VSIXValidatorWarning01,VSIXValidatorWarning02)'
+    required: false
+
+runs:
+  using: 'composite'
+  steps:
+    - uses: ../
+      with:
+        operation: publish
+        auth-type: ${{ inputs.auth-type }}
+        token: ${{ inputs.token }}
+        vsix-file: ${{ inputs.vsix-file }}
+        manifest-file: ${{ inputs.manifest-file }}
+        publisher-id: ${{ inputs.publisher-id }}
+        ignore-warnings: ${{ inputs.ignore-warnings }}

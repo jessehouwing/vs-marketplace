@@ -1,6 +1,8 @@
 import * as core from '@actions/core';
 import * as exec from '@actions/exec';
+import * as glob from '@actions/glob';
 import { existsSync } from 'fs';
+import path from 'path';
 import { IPlatformAdapter, ExecOptions, ExecResult, TaskResult } from '@vs-marketplace/core';
 
 export class GitHubAdapter implements IPlatformAdapter {
@@ -82,6 +84,17 @@ export class GitHubAdapter implements IPlatformAdapter {
 
   fileExists(path: string): boolean {
     return existsSync(path);
+  }
+
+  async findMatch(root: string, patterns: string[]): Promise<string[]> {
+    const normalizedPatterns = patterns.map((p) => {
+      const isExclude = p.startsWith('!');
+      const value = isExclude ? p.slice(1) : p;
+      const rooted = path.isAbsolute(value) ? value : path.join(root, value);
+      return isExclude ? `!${rooted}` : rooted;
+    });
+    const globber = await glob.create(normalizedPatterns.join('\n'));
+    return globber.glob();
   }
 
   setResult(result: TaskResult, message: string): void {

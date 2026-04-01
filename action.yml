@@ -1,4 +1,4 @@
-name: 'Publish Visual Studio Extension'
+name: 'VS Marketplace'
 description: 'Publish Visual Studio extension to the Visual Studio Marketplace'
 author: 'Jesse Houwing'
 
@@ -7,6 +7,11 @@ branding:
   color: 'blue'
 
 inputs:
+  operation:
+    description: 'Operation to perform: publish or package'
+    required: false
+    default: 'publish'
+
   auth-type:
     description: 'Authentication type (pat or oidc)'
     required: false
@@ -17,21 +22,37 @@ inputs:
     required: false
 
   vsix-file:
-    description: 'Path to the VSIX file to publish'
-    required: true
+    description: 'Path to the VSIX file to publish (required when operation is publish)'
+    required: false
 
   manifest-file:
-    description: 'Path to the publish manifest file'
-    required: true
+    description: 'Path to the publish manifest file (required when operation is publish)'
+    required: false
 
   publisher-id:
-    description: 'Publisher ID for the extension'
-    required: true
+    description: 'Publisher ID for the extension (required when operation is publish)'
+    required: false
 
   ignore-warnings:
     description: 'Comma or newline-separated list of warnings to ignore (e.g., VSIXValidatorWarning01,VSIXValidatorWarning02)'
     required: false
 
+  vsix-manifest:
+    description: 'Path to the .vsixmanifest file (required when operation is package)'
+    required: false
+
+  output-path:
+    description: 'Output path (directory or full .vsix path) for the packaged extension (required when operation is package)'
+    required: false
+
+  content-dir:
+    description: 'Optional content directory for packaging. If omitted, the manifest directory is used.'
+    required: false
+
+outputs:
+  vsix-file:
+    description: 'Full path to the packaged .vsix file (set when operation is package)'
+
 runs:
   using: 'node20'
-  main: 'dist/bundle.js'
+  main: 'packages/github-action/dist/bundle.js'

@@ -104,6 +104,10 @@ function pathExists(fullPath) {
   );
 }
 
+function isOpenSslFolderName(name) {
+  return /^openssl(?:\d+\.\d+\.\d+)?$/.test(name);
+}
+
 function getResourcePackageForModuleId(moduleId, target) {
   const configuredPackages = target.bundledModuleResourcePackages || [];
   for (const packageName of configuredPackages) {
@@ -134,39 +138,42 @@ function createModuleResourcePathRewritePlugin(target) {
       const moduleJsonLookupPattern = /path\.join\(__dirname,\s*['"]module\.json['"]\)/g;
       const libJsonLookupPattern = /path\.join\(__dirname,\s*['"]lib\.json['"]\)/g;
       const packageJsonLookupPattern = /path\.join\(__dirname,\s*['"]package\.json['"]\)/g;
+      const openSslExecutableLookupPattern =
+        /path\.join\(__dirname,\s*['"](openssl(?:\d+\.\d+\.\d+)?)['"],\s*['"]openssl['"]\)/g;
+
       if (
         !moduleJsonLookupPattern.test(code) &&
         !libJsonLookupPattern.test(code) &&
-        !packageJsonLookupPattern.test(code)
+        !packageJsonLookupPattern.test(code) &&
+        !(
+          packageName === 'azure-pipelines-tasks-azure-arm-rest' &&
+          openSslExecutableLookupPattern.test(code)
+        )
       ) {
         return null;
       }
 
       const rewrittenCode = code
         .replace(
-          moduleJsonLookupPattern,
+          /path\.join\(__dirname,\s*['"]module\.json['"]\)/g,
           `path.join(__dirname, '__bundle_resources', '${packageName}', 'module.json')`
         )
         .replace(
-          libJsonLookupPattern,
+          /path\.join\(__dirname,\s*['"]lib\.json['"]\)/g,
           `path.join(__dirname, '__bundle_resources', '${packageName}', 'lib.json')`
         )
         .replace(
-          packageJsonLookupPattern,
+          /path\.join\(__dirname,\s*['"]package\.json['"]\)/g,
           `path.join(__dirname, '__bundle_resources', '${packageName}', 'package.json')`
         );
 
       if (packageName === 'azure-pipelines-tasks-azure-arm-rest') {
         return {
-          code: rewrittenCode
-            .replace(
-              /path\.join\(__dirname,\s*['"]openssl3\.4\.2['"],\s*['"]openssl['"]\)/g,
-              "path.join(__dirname, '__bundle_resources', 'azure-pipelines-tasks-azure-arm-rest', 'openssl3.4.2', 'openssl')"
-            )
-            .replace(
-              /path\.join\(__dirname,\s*['"]openssl3\.4\.0['"],\s*['"]openssl['"]\)/g,
-              "path.join(__dirname, '__bundle_resources', 'azure-pipelines-tasks-azure-arm-rest', 'openssl3.4.0', 'openssl')"
-            ),
+          code: rewrittenCode.replace(
+            /path\.join\(__dirname,\s*['"](openssl(?:\d+\.\d+\.\d+)?)['"],\s*['"]openssl['"]\)/g,
+            (_match, folderName) =>
+              `path.join(__dirname, '__bundle_resources', 'azure-pipelines-tasks-azure-arm-rest', '${folderName}', 'openssl')`
+          ),
           map: null,
         };
       }
@@ -410,15 +417,16 @@ async function copyBundledModuleResources(target) {
     }
 
     if (packageName === 'azure-pipelines-tasks-azure-arm-rest') {
-      const openSslFolders = ['openssl3.4.0', 'openssl3.4.2'];
+      const entries = await fs.readdir(sourcePackageDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isDirectory() && isOpenSslFolderName(entry.name)) {
+          const sourceOpenSslDir = path.join(sourcePackageDir, entry.name);
+          const targetOpenSslDir = path.join(targetPackageDir, entry.name);
 
-      for (const folderName of openSslFolders) {
-        const sourceOpenSslDir = path.join(sourcePackageDir, folderName);
-        const targetOpenSslDir = path.join(targetPackageDir, folderName);
-
-        if (await pathExists(sourceOpenSslDir)) {
-          await fs.rm(targetOpenSslDir, { recursive: true, force: true });
-          await fs.cp(sourceOpenSslDir, targetOpenSslDir, { recursive: true });
+          if (await pathExists(sourceOpenSslDir)) {
+            await fs.rm(targetOpenSslDir, { recursive: true, force: true });
+            await fs.cp(sourceOpenSslDir, targetOpenSslDir, { recursive: true });
+          }
         }
       }
     }

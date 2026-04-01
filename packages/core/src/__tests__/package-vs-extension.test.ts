@@ -1,0 +1,130 @@
+import { packageVsExtension, PackageOptions } from '../packager.js';
+import { TaskResult } from '../platform-adapter.js';
+import { MockPlatformAdapter } from './mock-platform-adapter.js';
+
+describe('packageVsExtension', () => {
+  let adapter: MockPlatformAdapter;
+
+  beforeEach(() => {
+    adapter = new MockPlatformAdapter();
+  });
+
+  const baseOptions: PackageOptions = {
+    vsixManifest: 'C:\\source.extension.vsixmanifest',
+    outputPath: 'C:\\output',
+  };
+
+  const vsixUtil = 'C:\\VS\\VSIXUtil.exe';
+  const vsixOutputPath = 'C:\\output\\MyExt.vsix';
+
+  function setupVsixUtil() {
+    adapter.setFileExists(vsixUtil, true);
+    adapter.setFindMatchMockResponse([vsixOutputPath]);
+    adapter.setExecOutputResponseQueue([
+      { code: 0, stdout: vsixUtil, stderr: '' },
+      { code: 0, stdout: '', stderr: '' },
+    ]);
+  }
+
+  it('calls vswhere then VSIXUtil CreateVsix on success', async () => {
+    setupVsixUtil();
+
+    await packageVsExtension(baseOptions, adapter);
+
+    const outputCalls = adapter.getExecOutputCalls();
+    expect(outputCalls).toHaveLength(2);
+    expect(outputCalls[0].args).toContain('-find');
+    expect(outputCalls[0].args).toContain(
+      'VSSDK\\VisualStudioIntegration\\Tools\\Bin\\VSIXUtil.exe'
+    );
+    expect(outputCalls[1].command).toBe(vsixUtil);
+    expect(outputCalls[1].args[0]).toBe('CreateVsix');
+    expect(outputCalls[1].args[1]).toBe(baseOptions.vsixManifest);
+  });
+
+  it('passes output path to VSIXUtil', async () => {
+    setupVsixUtil();
+
+    await packageVsExtension(baseOptions, adapter);
+
+    const outputCalls = adapter.getExecOutputCalls();
+    expect(outputCalls[1].args).toContain('/out');
+    expect(outputCalls[1].args).toContain(baseOptions.outputPath);
+  });
+
+  it('passes content dir when provided', async () => {
+    setupVsixUtil();
+
+    const options: PackageOptions = {
+      ...baseOptions,
+      contentDir: 'C:\\extension-content',
+    };
+
+    await packageVsExtension(options, adapter);
+
+    const outputCalls = adapter.getExecOutputCalls();
+    expect(outputCalls[1].args).toContain('/dir');
+    expect(outputCalls[1].args).toContain(options.contentDir);
+  });
+
+  it('does not pass content dir when not provided', async () => {
+    setupVsixUtil();
+
+    await packageVsExtension(baseOptions, adapter);
+
+    const outputCalls = adapter.getExecOutputCalls();
+    expect(outputCalls[1].args).not.toContain('/dir');
+  });
+
+  it('sets task result to Succeeded on success', async () => {
+    setupVsixUtil();
+
+    await packageVsExtension(baseOptions, adapter);
+
+    expect(adapter.getTaskResult()?.result).toBe(TaskResult.Succeeded);
+  });
+
+  it('sets task result to Failed when VSIXUtil fails', async () => {
+    adapter.setFileExists(vsixUtil, true);
+    adapter.setExecOutputResponseQueue([
+      { code: 0, stdout: vsixUtil, stderr: '' },
+      { code: 1, stdout: '', stderr: 'Error' },
+    ]);
+
+    await expect(packageVsExtension(baseOptions, adapter)).rejects.toThrow();
+    expect(adapter.getTaskResult()?.result).toBe(TaskResult.Failed);
+  });
+
+  it('throws when vswhere cannot find VSIXUtil', async () => {
+    adapter.setExecOutputMockResponse({ code: 1, stdout: '', stderr: 'Not found' });
+
+    await expect(packageVsExtension(baseOptions, adapter)).rejects.toThrow(
+      'Could not locate VSIXUtil.exe'
+    );
+  });
+
+  it('returns the resolved vsix path', async () => {
+    setupVsixUtil();
+
+    const result = await packageVsExtension(baseOptions, adapter);
+
+    expect(result).toBe(vsixOutputPath);
+  });
+
+  it('returns outputPath directly when outputPath ends with .vsix', async () => {
+    const vsixOptions: PackageOptions = {
+      ...baseOptions,
+      outputPath: 'C:\\output\\MyExt.vsix',
+    };
+    adapter.setFileExists(vsixUtil, true);
+    adapter.setFileExists('C:\\output\\MyExt.vsix', true);
+    adapter.setExecOutputResponseQueue([
+      { code: 0, stdout: vsixUtil, stderr: '' },
+      { code: 0, stdout: '', stderr: '' },
+    ]);
+
+    const result = await packageVsExtension(vsixOptions, adapter);
+
+    expect(result).toBe('C:\\output\\MyExt.vsix');
+  });
+});

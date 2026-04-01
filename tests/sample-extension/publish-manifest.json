@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json.schemastore.org/vsix-publish",
+  "categories": ["Other"],
+  "identity": {
+    "internalName": "vs-marketplace-test"
+  },
+  "overview": "overview.md",
+  "priceCategory": "free",
+  "publisher": "jessehouwing",
+  "private": true,
+  "qna": false
+}

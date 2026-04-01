@@ -9,27 +9,27 @@ const config: Config = {
     '^@vs-marketplace/core$': '<rootDir>/packages/core/src/index.ts',
   },
   transform: {
-    '^.+\\.tsx?$': [
+    '^.+\\.ts$': [
       'ts-jest',
       {
         useESM: true,
-        tsconfig: {
-          module: 'Node16',
-          moduleResolution: 'Node16',
-          baseUrl: '.',
-          paths: {
-            '@vs-marketplace/core': ['packages/core/src/index.ts'],
-          },
+        tsconfig: 'tsconfig.jest.json',
+        diagnostics: {
+          ignoreCodes: [151002],
         },
       },
     ],
   },
   testMatch: ['**/__tests__/**/*.test.ts'],
+  testPathIgnorePatterns: ['/node_modules/', '/build/', '/dist/'],
+  modulePathIgnorePatterns: ['/build/', '/dist/'],
   collectCoverageFrom: [
     'packages/*/src/**/*.ts',
     '!packages/*/src/**/*.test.ts',
     '!packages/*/src/__tests__/**',
   ],
+  coverageDirectory: 'coverage',
+  coverageReporters: ['text', 'lcov', 'html'],
 };
 
 export default config;
