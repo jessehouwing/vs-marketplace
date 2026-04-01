@@ -9,13 +9,17 @@ export interface PublishOptions {
   manifestFile: string;
   publisherId: string;
   ignoreWarnings?: string;
+  workingDirectory?: string;
 }
 
 export class VsixPublisher {
   private vsixPublisherPath: string | null = null;
   private loggedIn = false;
 
-  constructor(private adapter: IPlatformAdapter) {}
+  constructor(
+    private adapter: IPlatformAdapter,
+    private workingDirectory?: string
+  ) {}
 
   /**
    * Find VsixPublisher.exe using vswhere
@@ -115,6 +119,7 @@ export class VsixPublisher {
 
     const exitCode = await this.adapter.exec(vsixPublisher, args, {
       failOnStdErr: true,
+      cwd: this.workingDirectory,
     });
 
     if (exitCode !== 0) {
@@ -142,6 +147,7 @@ export class VsixPublisher {
     const result = await this.adapter.execOutput(vsixPublisher, args, {
       failOnStdErr: false,
       ignoreReturnCode: true,
+      cwd: this.workingDirectory,
     });
 
     if (result.code !== 0) {
@@ -195,6 +201,7 @@ export class VsixPublisher {
 
     const exitCode = await this.adapter.exec(vsixPublisher, args, {
       failOnStdErr: true,
+      cwd: this.workingDirectory,
     });
 
     if (exitCode !== 0) {
@@ -220,7 +227,7 @@ export async function publishVsExtension(
     adapter.setSecret(options.token);
 
     // Create publisher instance
-    publisher = new VsixPublisher(adapter);
+    publisher = new VsixPublisher(adapter, options.workingDirectory);
 
     // Login
     await publisher.login(publisherId, options.token);

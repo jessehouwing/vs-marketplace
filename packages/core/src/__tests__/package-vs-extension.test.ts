@@ -77,6 +77,28 @@ describe('packageVsExtension', () => {
     expect(outputCalls[1].args).not.toContain('-files');
   });
 
+  it('passes working directory as cwd to VSIXUtil exec call', async () => {
+    const options: PackageOptions = {
+      ...baseOptions,
+      workingDirectory: 'C:\\my-extension',
+    };
+    setupVsixUtil();
+
+    await packageVsExtension(options, adapter);
+
+    const outputCalls = adapter.getExecOutputCalls();
+    expect(outputCalls[1].options?.cwd).toBe('C:\\my-extension');
+  });
+
+  it('does not set cwd when working directory is not specified', async () => {
+    setupVsixUtil();
+
+    await packageVsExtension(baseOptions, adapter);
+
+    const outputCalls = adapter.getExecOutputCalls();
+    expect(outputCalls[1].options?.cwd).toBeUndefined();
+  });
+
   it('sets task result to Succeeded on success', async () => {
     setupVsixUtil();
 

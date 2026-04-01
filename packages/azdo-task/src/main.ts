@@ -21,11 +21,15 @@ async function run(): Promise<void> {
       const filesManifest = tl.filePathSupplied('filesManifest')
         ? tl.getPathInput('filesManifest', false, false) || undefined
         : undefined;
+      const workingDirectory = tl.filePathSupplied('workingDirectory')
+        ? tl.getPathInput('workingDirectory', false, false) || undefined
+        : undefined;
 
       const options: PackageOptions = {
         vsixManifest,
         outputPath,
         filesManifest,
+        workingDirectory,
       };
 
       operationInvoked = true;
@@ -59,6 +63,9 @@ async function run(): Promise<void> {
       const manifestFile = tl.getPathInput('manifestFile', true, true);
       const publisherId = tl.getInput('publisherId', true);
       const ignoreWarnings = tl.getInput('ignoreWarnings', false);
+      const workingDirectory = tl.filePathSupplied('workingDirectory')
+        ? tl.getPathInput('workingDirectory', false, false) || undefined
+        : undefined;
 
       if (!vsixFile || !manifestFile || !publisherId || !auth.token) {
         throw new Error('Required inputs are missing');
@@ -71,6 +78,7 @@ async function run(): Promise<void> {
         manifestFile,
         publisherId,
         ignoreWarnings: ignoreWarnings || undefined,
+        workingDirectory,
       };
 
       operationInvoked = true;

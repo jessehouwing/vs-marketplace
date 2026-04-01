@@ -6,12 +6,16 @@ export interface PackageOptions {
   vsixManifest: string;
   outputPath: string;
   filesManifest?: string;
+  workingDirectory?: string;
 }
 
 export class VsixPackager {
   private vsixUtilPath: string | null = null;
 
-  constructor(private adapter: IPlatformAdapter) {}
+  constructor(
+    private adapter: IPlatformAdapter,
+    private workingDirectory?: string
+  ) {}
 
   /**
    * Find VSIXUtil.exe using vswhere
@@ -118,6 +122,7 @@ export class VsixPackager {
     const result = await this.adapter.execOutput(vsixUtil, args, {
       failOnStdErr: false,
       ignoreReturnCode: true,
+      cwd: this.workingDirectory,
     });
 
     if (result.code !== 0) {
@@ -151,7 +156,7 @@ export async function packageVsExtension(
   adapter: IPlatformAdapter
 ): Promise<string> {
   try {
-    const packager = new VsixPackager(adapter);
+    const packager = new VsixPackager(adapter, options.workingDirectory);
     const vsixPath = await packager.package(
       options.vsixManifest,
       options.outputPath,

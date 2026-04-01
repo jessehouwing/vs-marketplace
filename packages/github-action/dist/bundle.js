@@ -57589,10 +57589,12 @@ var TaskResult;
 
 class VsixPublisher {
     adapter;
+    workingDirectory;
     vsixPublisherPath = null;
     loggedIn = false;
-    constructor(adapter) {
+    constructor(adapter, workingDirectory) {
         this.adapter = adapter;
+        this.workingDirectory = workingDirectory;
     }
     /**
      * Find VsixPublisher.exe using vswhere
@@ -57671,6 +57673,7 @@ class VsixPublisher {
         const args = ['login', '-personalAccessToken', token, '-publisherName', publisherId];
         const exitCode = await this.adapter.exec(vsixPublisher, args, {
             failOnStdErr: true,
+            cwd: this.workingDirectory,
         });
         if (exitCode !== 0) {
             throw new Error('Login failed.');
@@ -57692,6 +57695,7 @@ class VsixPublisher {
         const result = await this.adapter.execOutput(vsixPublisher, args, {
             failOnStdErr: false,
             ignoreReturnCode: true,
+            cwd: this.workingDirectory,
         });
         if (result.code !== 0) {
             if (result.code === 31) {
@@ -57733,6 +57737,7 @@ class VsixPublisher {
         }
         const exitCode = await this.adapter.exec(vsixPublisher, args, {
             failOnStdErr: true,
+            cwd: this.workingDirectory,
         });
         if (exitCode !== 0) {
             throw new Error('Publish failed.');
@@ -57750,7 +57755,7 @@ async function publishVsExtension(options, adapter) {
         // Mask the token
         adapter.setSecret(options.token);
         // Create publisher instance
-        publisher = new VsixPublisher(adapter);
+        publisher = new VsixPublisher(adapter, options.workingDirectory);
         // Login
         await publisher.login(publisherId, options.token);
         // Publish
@@ -57778,9 +57783,11 @@ async function publishVsExtension(options, adapter) {
 
 class VsixPackager {
     adapter;
+    workingDirectory;
     vsixUtilPath = null;
-    constructor(adapter) {
+    constructor(adapter, workingDirectory) {
         this.adapter = adapter;
+        this.workingDirectory = workingDirectory;
     }
     /**
      * Find VSIXUtil.exe using vswhere
@@ -57862,6 +57869,7 @@ class VsixPackager {
         const result = await this.adapter.execOutput(vsixUtil, args, {
             failOnStdErr: false,
             ignoreReturnCode: true,
+            cwd: this.workingDirectory,
         });
         if (result.code !== 0) {
             throw new Error(`VSIXUtil.exe package failed with exit code ${result.code}.`);
@@ -57886,7 +57894,7 @@ class VsixPackager {
  */
 async function packageVsExtension(options, adapter) {
     try {
-        const packager = new VsixPackager(adapter);
+        const packager = new VsixPackager(adapter, options.workingDirectory);
         const vsixPath = await packager.package(options.vsixManifest, options.outputPath, options.filesManifest);
         adapter.setResult(0, 'Visual Studio extension packaged successfully');
         return vsixPath;
@@ -60807,10 +60815,12 @@ async function run() {
             const filesManifest = getInput('files-manifest', { required: false }) ||
                 getInput('content-dir', { required: false }) ||
                 undefined;
+            const workingDirectory = getInput('working-directory', { required: false }) || undefined;
             const options = {
                 vsixManifest,
                 outputPath,
                 filesManifest,
+                workingDirectory,
             };
             operationInvoked = true;
             const vsixFile = await packageVsExtension(options, adapter);
@@ -60839,6 +60849,7 @@ async function run() {
             const manifestFile = getInput('manifest-file', { required: true });
             const publisherId = getInput('publisher-id', { required: true });
             const ignoreWarnings = getInput('ignore-warnings', { required: false });
+            const workingDirectory = getInput('working-directory', { required: false }) || undefined;
             const options = {
                 connectTo: authType === 'pat' ? 'pat' : 'oidc',
                 token,
@@ -60846,6 +60857,7 @@ async function run() {
                 manifestFile,
                 publisherId,
                 ignoreWarnings: ignoreWarnings || undefined,
+                workingDirectory,
             };
             operationInvoked = true;
             await publishVsExtension(options, adapter);
