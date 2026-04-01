@@ -57845,22 +57845,26 @@ class VsixPackager {
     /**
      * Package a Visual Studio extension into a .vsix file
      */
-    async package(vsixManifest, outputPath, contentDir) {
+    async package(vsixManifest, outputPath, filesManifest) {
         this.adapter.info(`Packaging Visual Studio extension from manifest '${vsixManifest}'`);
         const vsixUtil = await this.getVsixUtilExe();
-        const args = ['CreateVsix', vsixManifest];
+        const args = ['package', '-sourceManifest', vsixManifest];
         if (outputPath) {
-            args.push('/out', outputPath);
+            args.push('-outputPath', outputPath);
         }
-        if (contentDir) {
-            args.push('/dir', contentDir);
+        if (filesManifest) {
+            args.push('-files', filesManifest);
+        }
+        const schemasPath = path__default.resolve(path__default.dirname(vsixUtil), '..', 'schemas');
+        if (this.adapter.fileExists(schemasPath)) {
+            args.push('-vsixSchemaPath', schemasPath);
         }
         const result = await this.adapter.execOutput(vsixUtil, args, {
             failOnStdErr: false,
             ignoreReturnCode: true,
         });
         if (result.code !== 0) {
-            throw new Error(`VSIXUtil.exe CreateVsix failed with exit code ${result.code}.`);
+            throw new Error(`VSIXUtil.exe package failed with exit code ${result.code}.`);
         }
         this.adapter.info('Extension packaged successfully.');
         if (/\.vsix$/i.test(outputPath)) {
@@ -57874,7 +57878,7 @@ class VsixPackager {
                 return matches[0];
             }
         }
-        throw new Error('Could not determine the output .vsix file path. Ensure VSIXUtil.exe supports the /out option.');
+        throw new Error('Could not determine the output .vsix file path. Ensure the -outputPath argument points to a valid location.');
     }
 }
 /**
@@ -57883,7 +57887,7 @@ class VsixPackager {
 async function packageVsExtension(options, adapter) {
     try {
         const packager = new VsixPackager(adapter);
-        const vsixPath = await packager.package(options.vsixManifest, options.outputPath, options.contentDir);
+        const vsixPath = await packager.package(options.vsixManifest, options.outputPath, options.filesManifest);
         adapter.setResult(0, 'Visual Studio extension packaged successfully');
         return vsixPath;
     }
@@ -60800,11 +60804,13 @@ async function run() {
         if (operation === 'package') {
             const vsixManifest = getInput('vsix-manifest', { required: true });
             const outputPath = getInput('output-path', { required: true });
-            const contentDir = getInput('content-dir', { required: false }) || undefined;
+            const filesManifest = getInput('files-manifest', { required: false }) ||
+                getInput('content-dir', { required: false }) ||
+                undefined;
             const options = {
                 vsixManifest,
                 outputPath,
-                contentDir,
+                filesManifest,
             };
             operationInvoked = true;
             const vsixFile = await packageVsExtension(options, adapter);

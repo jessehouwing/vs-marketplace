@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 export interface PackageOptions {
   vsixManifest: string;
   outputPath: string;
-  contentDir?: string;
+  filesManifest?: string;
 }
 
 export class VsixPackager {
@@ -95,19 +95,24 @@ export class VsixPackager {
   /**
    * Package a Visual Studio extension into a .vsix file
    */
-  async package(vsixManifest: string, outputPath: string, contentDir?: string): Promise<string> {
+  async package(vsixManifest: string, outputPath: string, filesManifest?: string): Promise<string> {
     this.adapter.info(`Packaging Visual Studio extension from manifest '${vsixManifest}'`);
 
     const vsixUtil = await this.getVsixUtilExe();
 
-    const args = ['CreateVsix', vsixManifest];
+    const args = ['package', '-sourceManifest', vsixManifest];
 
     if (outputPath) {
-      args.push('/out', outputPath);
+      args.push('-outputPath', outputPath);
     }
 
-    if (contentDir) {
-      args.push('/dir', contentDir);
+    if (filesManifest) {
+      args.push('-files', filesManifest);
+    }
+
+    const schemasPath = path.resolve(path.dirname(vsixUtil), '..', 'schemas');
+    if (this.adapter.fileExists(schemasPath)) {
+      args.push('-vsixSchemaPath', schemasPath);
     }
 
     const result = await this.adapter.execOutput(vsixUtil, args, {
@@ -116,7 +121,7 @@ export class VsixPackager {
     });
 
     if (result.code !== 0) {
-      throw new Error(`VSIXUtil.exe CreateVsix failed with exit code ${result.code}.`);
+      throw new Error(`VSIXUtil.exe package failed with exit code ${result.code}.`);
     }
 
     this.adapter.info('Extension packaged successfully.');
@@ -133,7 +138,7 @@ export class VsixPackager {
     }
 
     throw new Error(
-      'Could not determine the output .vsix file path. Ensure VSIXUtil.exe supports the /out option.'
+      'Could not determine the output .vsix file path. Ensure the -outputPath argument points to a valid location.'
     );
   }
 }
@@ -150,7 +155,7 @@ export async function packageVsExtension(
     const vsixPath = await packager.package(
       options.vsixManifest,
       options.outputPath,
-      options.contentDir
+      options.filesManifest
     );
     adapter.setResult(0, 'Visual Studio extension packaged successfully');
     return vsixPath;

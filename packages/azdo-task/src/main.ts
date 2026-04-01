@@ -18,14 +18,14 @@ async function run(): Promise<void> {
     if (operation === 'package') {
       const vsixManifest = tl.getPathInput('vsixManifest', true, true)!;
       const outputPath = tl.getPathInput('outputPath', true, false)!;
-      const contentDir = tl.filePathSupplied('contentDir')
-        ? tl.getPathInput('contentDir', false, false) || undefined
+      const filesManifest = tl.filePathSupplied('filesManifest')
+        ? tl.getPathInput('filesManifest', false, false) || undefined
         : undefined;
 
       const options: PackageOptions = {
         vsixManifest,
         outputPath,
-        contentDir,
+        filesManifest,
       };
 
       operationInvoked = true;
