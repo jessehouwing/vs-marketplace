@@ -443,6 +443,7 @@ jobs:
           use: vsix
           vsix-file: ${{ runner.temp }}/vsix/${{ needs.prepare-release.outputs.vsix-file-name }}
           no-wait-validation: true
+          extension-visibility: private_preview
 
       - name: Wait for validation
         uses: jessehouwing/azdo-marketplace/wait-for-validation@6
