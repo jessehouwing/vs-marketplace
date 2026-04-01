@@ -2,26 +2,26 @@
 
 This guide helps you migrate from Microsoft's `PublishVisualStudioExtension@5` task (from the
 [azure-devops-extension-tasks](https://github.com/microsoft/azure-devops-extension-tasks/tree/main/BuildTasks/PublishVSExtension)
-extension) to the `jessehouwing/vs-marketplace@v6` GitHub Actions action.
+extension) to the `jessehouwing/vs-marketplace@v0.0.1` GitHub Actions action.
 
 ## Migration approach
 
 1. Move your pipeline trigger to a GitHub Actions workflow `on:` block.
-2. Replace the `PublishVisualStudioExtension@5` step with `jessehouwing/vs-marketplace@v6`.
+2. Replace the `PublishVisualStudioExtension@5` step with `jessehouwing/vs-marketplace@v0.0.1`.
 3. Migrate credentials from Azure DevOps service connections to GitHub secrets (PAT) or OIDC
    federation.
 4. Rename inputs from `camelCase` to `kebab-case` (see mapping below).
 
 ## Input mapping
 
-| `PublishVisualStudioExtension@5` input               | `jessehouwing/vs-marketplace@v6` input | Notes                                                          |
-| ---------------------------------------------------- | -------------------------------------- | -------------------------------------------------------------- |
-| `connectTo: VsTeam` + `connectedServiceName`         | `auth-type: pat` + `token`             | Extract PAT from service connection and store as GitHub secret |
-| `connectTo: AzureRM` + `connectedServiceNameAzureRM` | `auth-type: oidc`                      | Use `azure/login@v2` step before this action                   |
-| `vsixFile`                                           | `vsix-file`                            | Renamed with kebab-case                                        |
-| `manifestFile`                                       | `manifest-file`                        | Renamed with kebab-case                                        |
-| `publisherId`                                        | `publisher-id`                         | Renamed with kebab-case                                        |
-| `ignoreWarnings`                                     | `ignore-warnings`                      | Renamed with kebab-case                                        |
+| `PublishVisualStudioExtension@5` input               | `jessehouwing/vs-marketplace@v0.0.1` input | Notes                                                          |
+| ---------------------------------------------------- | ------------------------------------------ | -------------------------------------------------------------- |
+| `connectTo: VsTeam` + `connectedServiceName`         | `auth-type: pat` + `token`                 | Extract PAT from service connection and store as GitHub secret |
+| `connectTo: AzureRM` + `connectedServiceNameAzureRM` | `auth-type: oidc`                          | Use `azure/login@v2` step before this action                   |
+| `vsixFile`                                           | `vsix-file`                                | Renamed with kebab-case                                        |
+| `manifestFile`                                       | `manifest-file`                            | Renamed with kebab-case                                        |
+| `publisherId`                                        | `publisher-id`                             | Renamed with kebab-case                                        |
+| `ignoreWarnings`                                     | `ignore-warnings`                          | Renamed with kebab-case                                        |
 
 ## Authentication migration
 
@@ -39,7 +39,7 @@ In GitHub Actions, store the same PAT as a repository or environment secret.
 Instead of long-lived PAT secrets, use federated credentials:
 
 1. Grant `id-token: write` permission in your workflow.
-2. Add an `azure/login@v2` step before `jessehouwing/vs-marketplace@v6`.
+2. Add an `azure/login@v2` step before `jessehouwing/vs-marketplace@v0.0.1`.
 3. Use `auth-type: oidc` on the action (no `token` input needed).
 
 Required GitHub secrets for OIDC:
@@ -89,7 +89,7 @@ steps:
       ignoreWarnings: 'VSIXValidatorWarning01'
 ```
 
-### After (`jessehouwing/vs-marketplace@v6` with PAT)
+### After (`jessehouwing/vs-marketplace@v0.0.1` with PAT)
 
 ```yaml
 # .github/workflows/publish.yml
@@ -111,7 +111,7 @@ jobs:
         run: msbuild **/*.sln /p:Configuration=Release
 
       - name: Publish to VS Marketplace
-        uses: jessehouwing/vs-marketplace@v6
+        uses: jessehouwing/vs-marketplace@v0.0.1
         with:
           auth-type: pat
           token: ${{ secrets.VS_MARKETPLACE_TOKEN }}
@@ -139,7 +139,7 @@ steps:
       publisherId: 'my-publisher'
 ```
 
-### After (`jessehouwing/vs-marketplace@v6` with OIDC)
+### After (`jessehouwing/vs-marketplace@v0.0.1` with OIDC)
 
 ```yaml
 # .github/workflows/publish.yml
@@ -172,7 +172,7 @@ jobs:
         run: msbuild **/*.sln /p:Configuration=Release
 
       - name: Publish to VS Marketplace
-        uses: jessehouwing/vs-marketplace@v6
+        uses: jessehouwing/vs-marketplace@v0.0.1
         with:
           auth-type: oidc
           vsix-file: output/MyExtension.vsix

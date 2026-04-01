@@ -16,7 +16,7 @@ This repository provides tools for publishing Visual Studio extensions to the Vi
 
 ```yaml
 - name: Publish Visual Studio Extension
-  uses: jessehouwing/vs-marketplace@v6
+  uses: jessehouwing/vs-marketplace@v0.0.1
   with:
     auth-type: pat
     token: ${{ secrets.VS_MARKETPLACE_TOKEN }}
@@ -102,8 +102,8 @@ npm run bundle       # Bundle for distribution
 For migration guidance, see the guides in the `docs/` folder:
 
 - [Migrate from `PublishVisualStudioExtension@5` to Azure Pipelines (`vs-marketplace@6`)](./docs/migrate-from-publishvsextension-to-azure-pipelines.md)
-- [Migrate from `PublishVisualStudioExtension@5` to GitHub Actions (`jessehouwing/vs-marketplace@v6`)](./docs/migrate-from-publishvsextension-to-github-actions.md)
-- [Migrate from Azure Pipelines (`vs-marketplace@6`) to GitHub Actions (`jessehouwing/vs-marketplace@v6`)](./docs/migrate-from-azure-pipelines-to-github-actions.md)
+- [Migrate from `PublishVisualStudioExtension@5` to GitHub Actions (`jessehouwing/vs-marketplace@v0.0.1`)](./docs/migrate-from-publishvsextension-to-github-actions.md)
+- [Migrate from Azure Pipelines (`vs-marketplace@6`) to GitHub Actions (`jessehouwing/vs-marketplace@v0.0.1`)](./docs/migrate-from-azure-pipelines-to-github-actions.md)
 
 ## License
 

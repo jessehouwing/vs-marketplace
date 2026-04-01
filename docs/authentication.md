@@ -15,7 +15,7 @@ The simplest method for authentication. You'll need to:
 **GitHub Actions:**
 
 ```yaml
-- uses: jessehouwing/vs-marketplace@v6
+- uses: jessehouwing/vs-marketplace@v0.0.1
   with:
     auth-type: pat
     token: ${{ secrets.VS_MARKETPLACE_TOKEN }}
@@ -79,7 +79,7 @@ A more secure method that doesn't require storing long-lived credentials.
          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-     - uses: jessehouwing/vs-marketplace@v6
+     - uses: jessehouwing/vs-marketplace@v0.0.1
        with:
          auth-type: oidc
          # ... other inputs

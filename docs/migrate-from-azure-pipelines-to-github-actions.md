@@ -1,27 +1,27 @@
 # Migrate from vs-marketplace (Azure Pipelines) to GitHub Actions
 
 This guide helps you migrate from the `vs-marketplace@6` Azure Pipelines task to the
-`jessehouwing/vs-marketplace@v6` GitHub Actions action.
+`jessehouwing/vs-marketplace@v0.0.1` GitHub Actions action.
 
 ## Migration approach
 
 1. Move your pipeline trigger to a GitHub Actions workflow `on:` block.
-2. Replace the `vs-marketplace@6` task step with `jessehouwing/vs-marketplace@v6`.
+2. Replace the `vs-marketplace@6` task step with `jessehouwing/vs-marketplace@v0.0.1`.
 3. Migrate credentials from Azure DevOps service connections to GitHub secrets (PAT) or OIDC
    federation.
 4. Rename inputs from `camelCase` to `kebab-case` (see mapping below).
 
 ## Input mapping
 
-| `vs-marketplace@6` input                                              | `jessehouwing/vs-marketplace@v6` input | Notes                                                          |
-| --------------------------------------------------------------------- | -------------------------------------- | -------------------------------------------------------------- |
-| `connectionType: PAT` + `connectionNamePAT`                           | `auth-type: pat` + `token`             | Extract PAT from service connection and store as GitHub secret |
-| `connectionType: WorkloadIdentity` + `connectionNameWorkloadIdentity` | `auth-type: oidc`                      | Use `azure/login@v2` step before this action                   |
-| `connectionType: AzureRM` + `connectionNameAzureRM`                   | `auth-type: oidc`                      | Use `azure/login@v2` step before this action                   |
-| `vsixFile`                                                            | `vsix-file`                            | Renamed with kebab-case                                        |
-| `manifestFile`                                                        | `manifest-file`                        | Renamed with kebab-case                                        |
-| `publisherId`                                                         | `publisher-id`                         | Renamed with kebab-case                                        |
-| `ignoreWarnings`                                                      | `ignore-warnings`                      | Renamed with kebab-case                                        |
+| `vs-marketplace@6` input                                              | `jessehouwing/vs-marketplace@v0.0.1` input | Notes                                                          |
+| --------------------------------------------------------------------- | ------------------------------------------ | -------------------------------------------------------------- |
+| `connectionType: PAT` + `connectionNamePAT`                           | `auth-type: pat` + `token`                 | Extract PAT from service connection and store as GitHub secret |
+| `connectionType: WorkloadIdentity` + `connectionNameWorkloadIdentity` | `auth-type: oidc`                          | Use `azure/login@v2` step before this action                   |
+| `connectionType: AzureRM` + `connectionNameAzureRM`                   | `auth-type: oidc`                          | Use `azure/login@v2` step before this action                   |
+| `vsixFile`                                                            | `vsix-file`                                | Renamed with kebab-case                                        |
+| `manifestFile`                                                        | `manifest-file`                            | Renamed with kebab-case                                        |
+| `publisherId`                                                         | `publisher-id`                             | Renamed with kebab-case                                        |
+| `ignoreWarnings`                                                      | `ignore-warnings`                          | Renamed with kebab-case                                        |
 
 ## Authentication migration
 
@@ -41,7 +41,7 @@ Both `WorkloadIdentity` and `AzureRM` connection types in the Azure Pipelines ta
 `auth-type: oidc` in GitHub Actions, using the `azure/login@v2` action for the token exchange.
 
 1. Grant `id-token: write` permission in your workflow.
-2. Add an `azure/login@v2` step before `jessehouwing/vs-marketplace@v6`.
+2. Add an `azure/login@v2` step before `jessehouwing/vs-marketplace@v0.0.1`.
 3. Use `auth-type: oidc` on the action (no `token` input needed).
 
 Required GitHub secrets for OIDC:
@@ -92,7 +92,7 @@ steps:
       ignoreWarnings: 'VSIXValidatorWarning01'
 ```
 
-### After (`jessehouwing/vs-marketplace@v6` with PAT)
+### After (`jessehouwing/vs-marketplace@v0.0.1` with PAT)
 
 ```yaml
 # .github/workflows/publish.yml
@@ -114,7 +114,7 @@ jobs:
         run: msbuild **/*.sln /p:Configuration=Release
 
       - name: Publish to VS Marketplace
-        uses: jessehouwing/vs-marketplace@v6
+        uses: jessehouwing/vs-marketplace@v0.0.1
         with:
           auth-type: pat
           token: ${{ secrets.VS_MARKETPLACE_TOKEN }}
@@ -142,7 +142,7 @@ steps:
       publisherId: 'my-publisher'
 ```
 
-### After (`jessehouwing/vs-marketplace@v6` with OIDC)
+### After (`jessehouwing/vs-marketplace@v0.0.1` with OIDC)
 
 ```yaml
 # .github/workflows/publish.yml
@@ -175,7 +175,7 @@ jobs:
         run: msbuild **/*.sln /p:Configuration=Release
 
       - name: Publish to VS Marketplace
-        uses: jessehouwing/vs-marketplace@v6
+        uses: jessehouwing/vs-marketplace@v0.0.1
         with:
           auth-type: oidc
           vsix-file: output/MyExtension.vsix

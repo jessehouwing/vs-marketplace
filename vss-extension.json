@@ -3,7 +3,7 @@
   "manifestVersion": 1,
   "id": "vs-marketplace-extension",
   "name": "VS Marketplace Extension",
-  "version": "6.0.0",
+  "version": "0.0.1",
   "publisher": "jessehouwing",
   "targets": [
     {
@@ -11,7 +11,9 @@
     }
   ],
   "description": "Azure Pipelines tasks for publishing Visual Studio extensions to the Visual Studio Marketplace",
-  "categories": ["Azure Pipelines"],
+  "categories": [
+    "Azure Pipelines"
+  ],
   "tags": [
     "Extension",
     "Marketplace",
@@ -46,13 +48,239 @@
     },
     {
       "path": "packages/azdo-task/icon.png"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/@azure/msal-common/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/@nodelib/fs.scandir/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/@nodelib/fs.stat/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/@nodelib/fs.walk/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/braces/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/cross-spawn/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/ecdsa-sig-formatter/CODEOWNERS",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/ecdsa-sig-formatter/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/execa/license",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/fast-glob/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/fastq/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/fill-range/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/get-stream/license",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/glob-parent/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/human-signals/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/is-extglob/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/is-glob/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/is-number/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/is-stream/license",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/isexe/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/jsonwebtoken/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/jwa/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/jws/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/lodash.includes/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/lodash.isboolean/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/lodash.isinteger/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/lodash.isnumber/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/lodash.isplainobject/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/lodash.isstring/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/lodash.once/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/merge-stream/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/merge2/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/micromatch/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/mimic-fn/license",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/msalv1/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/msalv2/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/msalv2/node_modules/@azure/msal-common/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/msalv3/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/msalv3/node_modules/@azure/msal-common/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/npm-run-path/license",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/onetime/license",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/path-key/license",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/picomatch/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/queue-microtask/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/reusify/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/run-parallel/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/safe-buffer/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/semver/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/shebang-command/license",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/shebang-regex/license",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/shelljs/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/strip-final-newline/license",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/to-regex-range/LICENSE",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/uuid/dist/bin/uuid",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/which/bin/node-which",
+      "contentType": "application/octet-stream"
+    },
+    {
+      "path": "packages/azdo-task/dist/node_modules/which/LICENSE",
+      "contentType": "application/octet-stream"
     }
   ],
   "contributions": [
     {
       "id": "vs-marketplace-task",
       "type": "ms.vss-distributed-task.task",
-      "targets": ["ms.vss-distributed-task.tasks"],
+      "targets": [
+        "ms.vss-distributed-task.tasks"
+      ],
       "properties": {
         "name": "packages/azdo-task"
       }
@@ -60,7 +288,9 @@
     {
       "id": "vs-marketplace-endpoint-type",
       "type": "ms.vss-endpoint.service-endpoint-type",
-      "targets": ["ms.vss-endpoint.endpoint-types"],
+      "targets": [
+        "ms.vss-endpoint.endpoint-types"
+      ],
       "properties": {
         "name": "VsMarketplacePublishing",
         "displayName": "VS Marketplace - Visual Studio Marketplace",

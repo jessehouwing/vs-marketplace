@@ -1,6 +1,6 @@
 {
   "name": "@vs-marketplace/github-action",
-  "version": "6.0.0",
+  "version": "0.0.1",
   "description": "GitHub Action for Visual Studio Extension publishing",
   "type": "module",
   "main": "./build/main.js",

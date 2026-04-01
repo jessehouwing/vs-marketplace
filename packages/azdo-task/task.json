@@ -8,9 +8,9 @@
   "preview": true,
   "category": "Deploy",
   "version": {
-    "Major": 6,
+    "Major": 0,
     "Minor": 0,
-    "Patch": 0
+    "Patch": 1
   },
   "visibility": ["Build", "Release"],
   "demands": ["visualstudio"],
