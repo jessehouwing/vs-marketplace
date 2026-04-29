@@ -34,7 +34,7 @@ import zlib from 'node:zlib';
 import require$$5$2 from 'node:perf_hooks';
 import require$$8$1 from 'node:util/types';
 import require$$1$1 from 'node:worker_threads';
-import require$$10, { createPrivateKey, createHash } from 'node:crypto';
+import require$$10, { randomUUID as randomUUID$1, createPrivateKey, createHash } from 'node:crypto';
 import require$$5$3 from 'node:http2';
 import require$$1$2, { fileURLToPath as fileURLToPath$1 } from 'node:url';
 import require$$5$4 from 'node:async_hooks';
@@ -29393,7 +29393,7 @@ class ChainedTokenCredential {
     }
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License.
@@ -29535,7 +29535,7 @@ class Serializer {
     }
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License.
@@ -29779,7 +29779,7 @@ const EncodingTypes = {
     UTF8: "utf-8",
 };
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License.
@@ -29832,7 +29832,7 @@ const INSTANCE_AWARE = "instance_aware";
 const RESOURCE = "resource";
 const CLI_DATA = "clidata";
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License.
@@ -29863,7 +29863,7 @@ function createAuthError(code, additionalMessage) {
     return new AuthError(code, additionalMessage || getDefaultErrorMessage(code));
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -29883,7 +29883,7 @@ function createClientConfigurationError(errorCode) {
     return new ClientConfigurationError(errorCode);
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License.
@@ -29963,7 +29963,7 @@ class StringUtils {
     }
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -29986,7 +29986,7 @@ function createClientAuthError(errorCode, additionalMessage) {
     return new ClientAuthError(errorCode, additionalMessage);
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License.
@@ -30005,7 +30005,7 @@ const invalidAuthorityMetadata = "invalid_authority_metadata";
 const untrustedAuthority = "untrusted_authority";
 const missingSshJwk = "missing_ssh_jwk";
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License.
@@ -30041,7 +30041,7 @@ const methodNotImplemented = "method_not_implemented";
 const resourceParameterRequired = "resource_parameter_required";
 const misplacedResourceParam = "misplaced_resource_parameter";
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -30236,7 +30236,7 @@ class ScopeSet {
     }
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -30351,18 +30351,29 @@ function addSid(parameters, sid) {
     parameters.set(SID, sid);
 }
 /**
- * add claims
- * @param claims
+ * Adds claims to request parameters, conditionally excluding clientCapabilities
+ * when skipBrokerClaims is true and a brokered flow is in effect.
+ * @param parameters - The request parameters map
+ * @param claims - The claims string from the request
+ * @param clientCapabilities - The client capabilities from configuration
+ * @param skipBrokerClaims - When true and BROKER_CLIENT_ID is present, excludes clientCapabilities from claims
  */
-function addClaims(parameters, claims, clientCapabilities) {
-    const mergedClaims = addClientCapabilitiesToClaims(claims, clientCapabilities);
-    try {
-        JSON.parse(mergedClaims);
+function addClaims(parameters, claims, clientCapabilities, skipBrokerClaims) {
+    // Skip clientCapabilities if skipBrokerClaims is set to true and this is a brokered authentication flow
+    const configClaims = skipBrokerClaims && parameters.has(BROKER_CLIENT_ID)
+        ? undefined
+        : clientCapabilities;
+    if (!StringUtils.isEmptyObj(claims) ||
+        (configClaims && configClaims.length > 0)) {
+        const mergedClaims = addClientCapabilitiesToClaims(claims, configClaims);
+        try {
+            JSON.parse(mergedClaims);
+        }
+        catch (e) {
+            throw createClientConfigurationError(invalidClaims);
+        }
+        parameters.set(CLAIMS, mergedClaims);
     }
-    catch (e) {
-        throw createClientConfigurationError(invalidClaims);
-    }
-    parameters.set(CLAIMS, mergedClaims);
 }
 /**
  * add correlationId
@@ -30632,7 +30643,7 @@ function addResource(parameters, resource) {
     }
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 /**
  * Parses hash string from given string. Returns empty string if no hash symbol is found.
  * @param hashString
@@ -30685,7 +30696,7 @@ function mapToQueryString(parameters) {
     return queryParameterArray.join("&");
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -30724,7 +30735,7 @@ const DEFAULT_CRYPTO_IMPLEMENTATION = {
     },
 };
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License.
@@ -30985,12 +30996,12 @@ class Logger {
     }
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 /* eslint-disable header/header */
 const name$1 = "@azure/msal-common";
-const version$1 = "16.4.0";
+const version$1 = "16.5.2";
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License.
@@ -30999,7 +31010,7 @@ const AzureCloudInstance = {
     // AzureCloudInstance is not specified.
     None: "none"};
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License.
@@ -31040,6 +31051,7 @@ function buildTenantProfile(homeAccountId, localAccountId, tenantId, idTokenClai
             username: preferred_username || upn || "",
             loginHint: login_hint,
             isHomeTenant: tenantIdMatchesHomeTenant(tenantId, homeAccountId),
+            upn: upn,
         };
     }
     else {
@@ -31067,7 +31079,7 @@ function updateAccountTenantProfileData(baseAccountInfo, tenantProfile, idTokenC
     }
     // ID token claims override passed in account info and tenant profile
     if (idTokenClaims) {
-        // Ignore isHomeTenant, loginHint, and sid which are part of tenant profile but not base account info
+        // Ignore isHomeTenant which is a utility property of tenant profile but not required in base account info
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { isHomeTenant, ...claimsSourcedTenantProfile } = buildTenantProfile(baseAccountInfo.homeAccountId, baseAccountInfo.localAccountId, baseAccountInfo.tenantId, idTokenClaims);
         updatedAccountInfo = {
@@ -31081,7 +31093,7 @@ function updateAccountTenantProfileData(baseAccountInfo, tenantProfile, idTokenC
     return updatedAccountInfo;
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -31161,7 +31173,7 @@ function checkMaxAge(authTime, maxAge) {
     }
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -31318,7 +31330,7 @@ class UrlString {
     }
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -31475,7 +31487,7 @@ function getCloudDiscoveryMetadataFromNetworkResponse(response, authorityHost) {
     return null;
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License.
@@ -31483,7 +31495,7 @@ function getCloudDiscoveryMetadataFromNetworkResponse(response, authorityHost) {
 const cacheQuotaExceeded = "cache_quota_exceeded";
 const cacheErrorUnknown = "cache_error_unknown";
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -31521,7 +31533,7 @@ function createCacheError(e) {
     }
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -31559,7 +31571,7 @@ function buildClientInfoFromHomeAccountId(homeAccountId) {
     };
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License.
@@ -31574,7 +31586,7 @@ const AuthorityType = {
     Ciam: 3,
 };
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License.
@@ -31596,7 +31608,7 @@ function getTenantIdFromIdTokenClaims(idTokenClaims) {
     return null;
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License.
@@ -31615,7 +31627,7 @@ const ProtocolMode = {
      */
     OIDC: "OIDC"};
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 /**
  * Returns the AccountInfo interface for this account.
  */
@@ -31758,7 +31770,7 @@ function isAccountEntity(entity) {
         entity.hasOwnProperty("authorityType"));
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -31796,8 +31808,10 @@ class CacheManager {
         const allAccounts = this.getAllAccounts(accountFilter, correlationId);
         if (allAccounts.length > 1) {
             // If one or more accounts are found, prioritize accounts that have an ID token
-            const sortedAccounts = allAccounts.sort((account) => {
-                return account.idTokenClaims ? -1 : 1;
+            const sortedAccounts = allAccounts.sort((a, b) => {
+                const aHasClaims = a.idTokenClaims ? 1 : 0;
+                const bHasClaims = b.idTokenClaims ? 1 : 0;
+                return bHasClaims - aHasClaims;
             });
             return sortedAccounts[0];
         }
@@ -31895,6 +31909,19 @@ class CacheManager {
             !(tenantProfile.isHomeTenant === tenantProfileFilter.isHomeTenant)) {
             return false;
         }
+        if (!!tenantProfileFilter.username &&
+            !(this.matchUsername(tenantProfile.username, tenantProfileFilter.username) ||
+                !this.matchUsername(tenantProfile.upn, tenantProfileFilter.username))) {
+            return false;
+        }
+        if (!!tenantProfileFilter.loginHint &&
+            !this.matchLoginHintWithTenantProfile(tenantProfile, tenantProfileFilter.loginHint)) {
+            return false;
+        }
+        if (!!tenantProfileFilter.upn &&
+            !(tenantProfile.upn === tenantProfileFilter.upn)) {
+            return false;
+        }
         return true;
     }
     idTokenClaimsMatchTenantProfileFilter(idTokenClaims, tenantProfileFilter) {
@@ -31909,7 +31936,8 @@ class CacheManager {
                 return false;
             }
             if (!!tenantProfileFilter.username &&
-                !this.matchUsername(idTokenClaims.preferred_username, tenantProfileFilter.username)) {
+                !this.matchUsername(idTokenClaims.preferred_username, tenantProfileFilter.username) &&
+                !this.matchUsername(idTokenClaims.upn, tenantProfileFilter.username)) {
                 return false;
             }
             if (!!tenantProfileFilter.name &&
@@ -32010,10 +32038,6 @@ class CacheManager {
                 !this.matchHomeAccountId(entity, accountFilter.homeAccountId)) {
                 return;
             }
-            if (!!accountFilter.username &&
-                !this.matchUsername(entity.username, accountFilter.username)) {
-                return;
-            }
             if (!!accountFilter.environment &&
                 !this.matchEnvironment(entity, accountFilter.environment, correlationId)) {
                 return;
@@ -32034,6 +32058,9 @@ class CacheManager {
             const tenantProfileFilter = {
                 localAccountId: accountFilter?.localAccountId,
                 name: accountFilter?.name,
+                username: accountFilter?.username,
+                loginHint: accountFilter?.loginHint,
+                upn: accountFilter?.upn,
             };
             const matchingTenantProfiles = entity.tenantProfiles?.filter((tenantProfile) => {
                 return this.tenantProfileMatchesFilter(tenantProfile, tenantProfileFilter);
@@ -32284,11 +32311,11 @@ class CacheManager {
                 const numHomeIdTokens = homeIdTokenMap.size;
                 if (numHomeIdTokens < 1) {
                     this.commonLogger.info("CacheManager:getIdToken - Multiple ID tokens found for account but none match account entity tenant id, returning first result", correlationId);
-                    return idTokenMap.values().next().value;
+                    return idTokenMap.values().next().value ?? null;
                 }
                 else if (numHomeIdTokens === 1) {
                     this.commonLogger.info("CacheManager:getIdToken - Multiple ID tokens found for account, defaulting to home tenant profile", correlationId);
-                    return homeIdTokenMap.values().next().value;
+                    return homeIdTokenMap.values().next().value ?? null;
                 }
                 else {
                     // Multiple ID tokens for home tenant profile, remove all and return null
@@ -32304,7 +32331,7 @@ class CacheManager {
             return null;
         }
         this.commonLogger.info("CacheManager:getIdToken - Returning ID token", correlationId);
-        return idTokenMap.values().next().value;
+        return idTokenMap.values().next().value ?? null;
     }
     /**
      * Gets all idTokens matching the given filter
@@ -32617,6 +32644,17 @@ class CacheManager {
             filterUsername?.toLowerCase() === cachedUsername.toLowerCase());
     }
     /**
+     * helper to match loginhints
+     * @param entity
+     * @param loginHint
+     * @returns
+     */
+    matchLoginHintWithTenantProfile(tenantProfile, loginHintFilter) {
+        return (tenantProfile.loginHint === loginHintFilter ||
+            tenantProfile.username === loginHintFilter ||
+            tenantProfile.upn === loginHintFilter);
+    }
+    /**
      * helper to match assertion
      * @param value
      * @param oboAssertion
@@ -32706,6 +32744,10 @@ class CacheManager {
             return true;
         }
         if (tokenClaims.upn === loginHint) {
+            return true;
+        }
+        // check login hint against list of emails in token claims
+        if (tokenClaims.emails && tokenClaims.emails.includes(loginHint)) {
             return true;
         }
         return false;
@@ -32859,7 +32901,7 @@ class DefaultStorageClass extends CacheManager {
     }
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License.
@@ -32873,7 +32915,7 @@ class DefaultStorageClass extends CacheManager {
 const PerformanceEventStatus = {
     InProgress: 1};
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -32928,7 +32970,7 @@ class StubPerformanceClient {
     }
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -33023,172 +33065,34 @@ function isOidcProtocolMode(config) {
     return (config.authOptions.authority.options.protocolMode === ProtocolMode.OIDC);
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
-
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License.
  */
 /**
- * Error thrown when there is an error with the server code, for example, unavailability.
- */
-class ServerError extends AuthError {
-    constructor(errorCode, errorMessage, subError, errorNo, status) {
-        super(errorCode, errorMessage, subError);
-        this.name = "ServerError";
-        this.errorNo = errorNo;
-        this.status = status;
-        Object.setPrototypeOf(this, ServerError.prototype);
+ * This class instance helps track the memory changes facilitating
+ * decisions to read from and write to the persistent cache
+ */ class TokenCacheContext {
+    constructor(tokenCache, hasChanged) {
+        this.cache = tokenCache;
+        this.hasChanged = hasChanged;
+    }
+    /**
+     * boolean which indicates the changes in cache
+     */
+    get cacheHasChanged() {
+        return this.hasChanged;
+    }
+    /**
+     * function to retrieve the token cache
+     */
+    get tokenCache() {
+        return this.cache;
     }
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
-/*
- * Copyright (c) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License.
- */
-/**
- * MSAL-defined interaction required error code indicating no tokens are found in cache.
- * @public
- */
-const noTokensFound = "no_tokens_found";
-/**
- * MSAL-defined error code indicating the refresh token has expired and user interaction is needed.
- * @public
- */
-const refreshTokenExpired = "refresh_token_expired";
-/**
- * MSAL-defined error code indicating UI/UX is not allowed (e.g., blocked by policy), requiring alternate interaction.
- * @public
- */
-const uxNotAllowed = "ux_not_allowed";
-/**
- * Server-originated error code indicating interaction is required to complete the request.
- * @public
- */
-const interactionRequired = "interaction_required";
-/**
- * Server-originated error code indicating user consent is required.
- * @public
- */
-const consentRequired = "consent_required";
-/**
- * Server-originated error code indicating user login is required.
- * @public
- */
-const loginRequired = "login_required";
-/**
- * Server-originated error code indicating the token is invalid or corrupted.
- * @public
- */
-const badToken = "bad_token";
-/**
- * Server-originated error code indicating the user is in an interrupted state and interaction is required.
- * @public
- */
-const interruptedUser = "interrupted_user";
-
-/*! @azure/msal-common v16.4.0 2026-03-18 */
-
-/*
- * Copyright (c) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License.
- */
-/**
- * InteractionRequiredServerErrorMessage contains string constants used by error codes and messages returned by the server indicating interaction is required
- */
-const InteractionRequiredServerErrorMessage = [
-    interactionRequired,
-    consentRequired,
-    loginRequired,
-    badToken,
-    uxNotAllowed,
-    interruptedUser,
-];
-const InteractionRequiredAuthSubErrorMessage = [
-    "message_only",
-    "additional_action",
-    "basic_action",
-    "user_password_expired",
-    "consent_required",
-    "bad_token",
-    "ux_not_allowed",
-    "interrupted_user",
-];
-/**
- * Error thrown when user interaction is required.
- */
-class InteractionRequiredAuthError extends AuthError {
-    constructor(errorCode, errorMessage, subError, timestamp, traceId, correlationId, claims, errorNo) {
-        super(errorCode, errorMessage, subError);
-        Object.setPrototypeOf(this, InteractionRequiredAuthError.prototype);
-        this.timestamp = timestamp || "";
-        this.traceId = traceId || "";
-        this.correlationId = correlationId || "";
-        this.claims = claims || "";
-        this.name = "InteractionRequiredAuthError";
-        this.errorNo = errorNo;
-    }
-}
-/**
- * Helper function used to determine if an error thrown by the server requires interaction to resolve
- * @param errorCode
- * @param errorString
- * @param subError
- */
-function isInteractionRequiredError(errorCode, errorString, subError) {
-    const isInteractionRequiredErrorCode = !!errorCode &&
-        InteractionRequiredServerErrorMessage.indexOf(errorCode) > -1;
-    const isInteractionRequiredSubError = !!subError &&
-        InteractionRequiredAuthSubErrorMessage.indexOf(subError) > -1;
-    const isInteractionRequiredErrorDesc = !!errorString &&
-        InteractionRequiredServerErrorMessage.some((irErrorCode) => {
-            return errorString.indexOf(irErrorCode) > -1;
-        });
-    return (isInteractionRequiredErrorCode ||
-        isInteractionRequiredErrorDesc ||
-        isInteractionRequiredSubError);
-}
-/**
- * Creates an InteractionRequiredAuthError
- */
-function createInteractionRequiredAuthError(errorCode, errorMessage) {
-    return new InteractionRequiredAuthError(errorCode, errorMessage);
-}
-
-/*! @azure/msal-common v16.4.0 2026-03-18 */
-/**
- * Parses the state into the RequestStateObject, which contains the LibraryState info and the state passed by the user.
- * @param base64Decode
- * @param state
- */
-function parseRequestState(base64Decode, state) {
-    if (!base64Decode) {
-        throw createClientAuthError(noCryptoObject);
-    }
-    if (!state) {
-        throw createClientAuthError(invalidState);
-    }
-    try {
-        // Split the state between library state and user passed state and decode them separately
-        const splitState = state.split(RESOURCE_DELIM);
-        const libraryState = splitState[0];
-        const userState = splitState.length > 1
-            ? splitState.slice(1).join(RESOURCE_DELIM)
-            : "";
-        const libraryStateString = base64Decode(libraryState);
-        const libraryStateObj = JSON.parse(libraryStateString);
-        return {
-            userRequestState: userState || "",
-            libraryState: libraryStateObj,
-        };
-    }
-    catch (e) {
-        throw createClientAuthError(invalidState);
-    }
-}
-
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License.
@@ -33243,269 +33147,7 @@ function delay$2(t, value) {
     return new Promise((resolve) => setTimeout(() => resolve(value), t));
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
-/*
- * Copyright (c) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License.
- */
-/**
- * Time spent sending/waiting for the response of a request to the token endpoint
- */
-const NetworkClientSendPostRequestAsync = "networkClientSendPostRequestAsync";
-const RefreshTokenClientExecutePostToTokenEndpoint = "refreshTokenClientExecutePostToTokenEndpoint";
-const AuthorizationCodeClientExecutePostToTokenEndpoint = "authorizationCodeClientExecutePostToTokenEndpoint";
-/**
- * Time spent on the network for refresh token acquisition
- */
-const RefreshTokenClientExecuteTokenRequest = "refreshTokenClientExecuteTokenRequest";
-/**
- * Time taken for acquiring refresh token , records RT size
- */
-const RefreshTokenClientAcquireToken = "refreshTokenClientAcquireToken";
-/**
- * Time taken for acquiring cached refresh token
- */
-const RefreshTokenClientAcquireTokenWithCachedRefreshToken = "refreshTokenClientAcquireTokenWithCachedRefreshToken";
-/**
- * Helper function to create token request body in RefreshTokenClient (msal-common).
- */
-const RefreshTokenClientCreateTokenRequestBody = "refreshTokenClientCreateTokenRequestBody";
-const SilentFlowClientGenerateResultFromCacheRecord = "silentFlowClientGenerateResultFromCacheRecord";
-/**
- * APIs in Authorization Code Client (msal-common)
- */
-const AuthClientExecuteTokenRequest = "authClientExecuteTokenRequest";
-const AuthClientCreateTokenRequestBody = "authClientCreateTokenRequestBody";
-const UpdateTokenEndpointAuthority = "updateTokenEndpointAuthority";
-/**
- * Generate functions in PopTokenGenerator (msal-common)
- */
-const PopTokenGenerateCnf = "popTokenGenerateCnf";
-/**
- * handleServerTokenResponse API in ResponseHandler (msal-common)
- */
-const HandleServerTokenResponse = "handleServerTokenResponse";
-/**
- * Authority functions
- */
-const AuthorityResolveEndpointsAsync = "authorityResolveEndpointsAsync";
-const AuthorityGetCloudDiscoveryMetadataFromNetwork = "authorityGetCloudDiscoveryMetadataFromNetwork";
-const AuthorityUpdateCloudDiscoveryMetadata = "authorityUpdateCloudDiscoveryMetadata";
-const AuthorityGetEndpointMetadataFromNetwork = "authorityGetEndpointMetadataFromNetwork";
-const AuthorityUpdateEndpointMetadata = "authorityUpdateEndpointMetadata";
-const AuthorityUpdateMetadataWithRegionalInformation = "authorityUpdateMetadataWithRegionalInformation";
-/**
- * Region Discovery functions
- */
-const RegionDiscoveryDetectRegion = "regionDiscoveryDetectRegion";
-const RegionDiscoveryGetRegionFromIMDS = "regionDiscoveryGetRegionFromIMDS";
-const RegionDiscoveryGetCurrentVersion = "regionDiscoveryGetCurrentVersion";
-/**
- * Cache operations
- */
-const CacheManagerGetRefreshToken = "cacheManagerGetRefreshToken";
-
-/*! @azure/msal-common v16.4.0 2026-03-18 */
-/*
- * Copyright (c) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License.
- */
-/**
- * Wraps a function with a performance measurement.
- * Usage: invoke(functionToCall, performanceClient, "EventName", "correlationId")(...argsToPassToFunction)
- * @param callback
- * @param eventName
- * @param logger
- * @param telemetryClient
- * @param correlationId
- * @returns
- * @internal
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const invoke = (callback, eventName, logger, telemetryClient, correlationId) => {
-    return (...args) => {
-        logger.trace(`Executing function '${eventName}'`, correlationId);
-        const inProgressEvent = telemetryClient.startMeasurement(eventName, correlationId);
-        if (correlationId) {
-            // Track number of times this API is called in a single request
-            telemetryClient.incrementFields({ [`ext.${eventName}CallCount`]: 1 }, correlationId);
-        }
-        try {
-            const result = callback(...args);
-            inProgressEvent.end({
-                success: true,
-            });
-            logger.trace(`Returning result from '${eventName}'`, correlationId);
-            return result;
-        }
-        catch (e) {
-            logger.trace(`Error occurred in '${eventName}'`, correlationId);
-            try {
-                logger.trace(JSON.stringify(e), correlationId);
-            }
-            catch (e) {
-                logger.trace("Unable to print error message.", correlationId);
-            }
-            inProgressEvent.end({
-                success: false,
-            }, e);
-            throw e;
-        }
-    };
-};
-/**
- * Wraps an async function with a performance measurement.
- * Usage: invokeAsync(functionToCall, performanceClient, "EventName", "correlationId")(...argsToPassToFunction)
- * @param callback
- * @param eventName
- * @param logger
- * @param telemetryClient
- * @param correlationId
- * @returns
- * @internal
- *
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const invokeAsync = (callback, eventName, logger, telemetryClient, correlationId) => {
-    return (...args) => {
-        logger.trace(`Executing function '${eventName}'`, correlationId);
-        const inProgressEvent = telemetryClient.startMeasurement(eventName, correlationId);
-        if (correlationId) {
-            // Track number of times this API is called in a single request
-            telemetryClient.incrementFields({ [`ext.${eventName}CallCount`]: 1 }, correlationId);
-        }
-        return callback(...args)
-            .then((response) => {
-            logger.trace(`Returning result from '${eventName}'`, correlationId);
-            inProgressEvent.end({
-                success: true,
-            });
-            return response;
-        })
-            .catch((e) => {
-            logger.trace(`Error occurred in '${eventName}'`, correlationId);
-            try {
-                logger.trace(JSON.stringify(e), correlationId);
-            }
-            catch (e) {
-                logger.trace("Unable to print error message.", correlationId);
-            }
-            inProgressEvent.end({
-                success: false,
-            }, e);
-            throw e;
-        });
-    };
-};
-
-/*! @azure/msal-common v16.4.0 2026-03-18 */
-
-/*
- * Copyright (c) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License.
- */
-const KeyLocation = {
-    SW: "sw"};
-/** @internal */
-class PopTokenGenerator {
-    constructor(cryptoUtils, performanceClient) {
-        this.cryptoUtils = cryptoUtils;
-        this.performanceClient = performanceClient;
-    }
-    /**
-     * Generates the req_cnf validated at the RP in the POP protocol for SHR parameters
-     * and returns an object containing the keyid, the full req_cnf string and the req_cnf string hash
-     * @param request
-     * @returns
-     */
-    async generateCnf(request, logger) {
-        const reqCnf = await invokeAsync(this.generateKid.bind(this), PopTokenGenerateCnf, logger, this.performanceClient, request.correlationId)(request);
-        const reqCnfString = this.cryptoUtils.base64UrlEncode(JSON.stringify(reqCnf));
-        return {
-            kid: reqCnf.kid,
-            reqCnfString,
-        };
-    }
-    /**
-     * Generates key_id for a SHR token request
-     * @param request
-     * @returns
-     */
-    async generateKid(request) {
-        const kidThumbprint = await this.cryptoUtils.getPublicKeyThumbprint(request);
-        return {
-            kid: kidThumbprint,
-            xms_ksl: KeyLocation.SW,
-        };
-    }
-    /**
-     * Signs the POP access_token with the local generated key-pair
-     * @param accessToken
-     * @param request
-     * @returns
-     */
-    async signPopToken(accessToken, keyId, request) {
-        return this.signPayload(accessToken, keyId, request);
-    }
-    /**
-     * Utility function to generate the signed JWT for an access_token
-     * @param payload
-     * @param kid
-     * @param request
-     * @param claims
-     * @returns
-     */
-    async signPayload(payload, keyId, request, claims) {
-        // Deconstruct request to extract SHR parameters
-        const { resourceRequestMethod, resourceRequestUri, shrClaims, shrNonce, shrOptions, } = request;
-        const resourceUrlString = resourceRequestUri
-            ? new UrlString(resourceRequestUri)
-            : undefined;
-        const resourceUrlComponents = resourceUrlString?.getUrlComponents();
-        return this.cryptoUtils.signJwt({
-            at: payload,
-            ts: nowSeconds(),
-            m: resourceRequestMethod?.toUpperCase(),
-            u: resourceUrlComponents?.HostNameAndPort,
-            nonce: shrNonce || this.cryptoUtils.createNewGuid(),
-            p: resourceUrlComponents?.AbsolutePath,
-            q: resourceUrlComponents?.QueryString
-                ? [[], resourceUrlComponents.QueryString]
-                : undefined,
-            client_claims: shrClaims || undefined,
-            ...claims,
-        }, keyId, shrOptions, request.correlationId);
-    }
-}
-
-/*! @azure/msal-common v16.4.0 2026-03-18 */
-/*
- * Copyright (c) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License.
- */
-/**
- * This class instance helps track the memory changes facilitating
- * decisions to read from and write to the persistent cache
- */ class TokenCacheContext {
-    constructor(tokenCache, hasChanged) {
-        this.cache = tokenCache;
-        this.hasChanged = hasChanged;
-    }
-    /**
-     * boolean which indicates the changes in cache
-     */
-    get cacheHasChanged() {
-        return this.hasChanged;
-    }
-    /**
-     * function to retrieve the token cache
-     */
-    get tokenCache() {
-        return this.cache;
-    }
-}
-
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -33764,7 +33406,407 @@ function isAuthorityMetadataExpired(metadata) {
     return metadata.expiresAt <= nowSeconds();
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
+/*
+ * Copyright (c) Microsoft Corporation. All rights reserved.
+ * Licensed under the MIT License.
+ */
+/**
+ * Time spent sending/waiting for the response of a request to the token endpoint
+ */
+const NetworkClientSendPostRequestAsync = "networkClientSendPostRequestAsync";
+const RefreshTokenClientExecutePostToTokenEndpoint = "refreshTokenClientExecutePostToTokenEndpoint";
+const AuthorizationCodeClientExecutePostToTokenEndpoint = "authorizationCodeClientExecutePostToTokenEndpoint";
+/**
+ * Time spent on the network for refresh token acquisition
+ */
+const RefreshTokenClientExecuteTokenRequest = "refreshTokenClientExecuteTokenRequest";
+/**
+ * Time taken for acquiring refresh token , records RT size
+ */
+const RefreshTokenClientAcquireToken = "refreshTokenClientAcquireToken";
+/**
+ * Time taken for acquiring cached refresh token
+ */
+const RefreshTokenClientAcquireTokenWithCachedRefreshToken = "refreshTokenClientAcquireTokenWithCachedRefreshToken";
+/**
+ * Helper function to create token request body in RefreshTokenClient (msal-common).
+ */
+const RefreshTokenClientCreateTokenRequestBody = "refreshTokenClientCreateTokenRequestBody";
+const SilentFlowClientGenerateResultFromCacheRecord = "silentFlowClientGenerateResultFromCacheRecord";
+/**
+ * APIs in Authorization Code Client (msal-common)
+ */
+const AuthClientExecuteTokenRequest = "authClientExecuteTokenRequest";
+const AuthClientCreateTokenRequestBody = "authClientCreateTokenRequestBody";
+const UpdateTokenEndpointAuthority = "updateTokenEndpointAuthority";
+/**
+ * Generate functions in PopTokenGenerator (msal-common)
+ */
+const PopTokenGenerateCnf = "popTokenGenerateCnf";
+/**
+ * handleServerTokenResponse API in ResponseHandler (msal-common)
+ */
+const HandleServerTokenResponse = "handleServerTokenResponse";
+/**
+ * Authority functions
+ */
+const AuthorityResolveEndpointsAsync = "authorityResolveEndpointsAsync";
+const AuthorityGetCloudDiscoveryMetadataFromNetwork = "authorityGetCloudDiscoveryMetadataFromNetwork";
+const AuthorityUpdateCloudDiscoveryMetadata = "authorityUpdateCloudDiscoveryMetadata";
+const AuthorityGetEndpointMetadataFromNetwork = "authorityGetEndpointMetadataFromNetwork";
+const AuthorityUpdateEndpointMetadata = "authorityUpdateEndpointMetadata";
+const AuthorityUpdateMetadataWithRegionalInformation = "authorityUpdateMetadataWithRegionalInformation";
+/**
+ * Region Discovery functions
+ */
+const RegionDiscoveryDetectRegion = "regionDiscoveryDetectRegion";
+const RegionDiscoveryGetRegionFromIMDS = "regionDiscoveryGetRegionFromIMDS";
+const RegionDiscoveryGetCurrentVersion = "regionDiscoveryGetCurrentVersion";
+/**
+ * Cache operations
+ */
+const CacheManagerGetRefreshToken = "cacheManagerGetRefreshToken";
+
+/*! @azure/msal-common v16.5.2 2026-04-28 */
+/*
+ * Copyright (c) Microsoft Corporation. All rights reserved.
+ * Licensed under the MIT License.
+ */
+/**
+ * Wraps a function with a performance measurement.
+ * Usage: invoke(functionToCall, performanceClient, "EventName", "correlationId")(...argsToPassToFunction)
+ * @param callback
+ * @param eventName
+ * @param logger
+ * @param telemetryClient
+ * @param correlationId
+ * @returns
+ * @internal
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const invoke = (callback, eventName, logger, telemetryClient, correlationId) => {
+    return (...args) => {
+        logger.trace(`Executing function '${eventName}'`, correlationId);
+        const inProgressEvent = telemetryClient.startMeasurement(eventName, correlationId);
+        if (correlationId) {
+            // Track number of times this API is called in a single request
+            telemetryClient.incrementFields({ [`ext.${eventName}CallCount`]: 1 }, correlationId);
+        }
+        try {
+            const result = callback(...args);
+            inProgressEvent.end({
+                success: true,
+            });
+            logger.trace(`Returning result from '${eventName}'`, correlationId);
+            return result;
+        }
+        catch (e) {
+            logger.trace(`Error occurred in '${eventName}'`, correlationId);
+            try {
+                logger.trace(JSON.stringify(e), correlationId);
+            }
+            catch (e) {
+                logger.trace("Unable to print error message.", correlationId);
+            }
+            inProgressEvent.end({
+                success: false,
+            }, e);
+            throw e;
+        }
+    };
+};
+/**
+ * Wraps an async function with a performance measurement.
+ * Usage: invokeAsync(functionToCall, performanceClient, "EventName", "correlationId")(...argsToPassToFunction)
+ * @param callback
+ * @param eventName
+ * @param logger
+ * @param telemetryClient
+ * @param correlationId
+ * @returns
+ * @internal
+ *
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const invokeAsync = (callback, eventName, logger, telemetryClient, correlationId) => {
+    return (...args) => {
+        logger.trace(`Executing function '${eventName}'`, correlationId);
+        const inProgressEvent = telemetryClient.startMeasurement(eventName, correlationId);
+        if (correlationId) {
+            // Track number of times this API is called in a single request
+            telemetryClient.incrementFields({ [`ext.${eventName}CallCount`]: 1 }, correlationId);
+        }
+        return callback(...args)
+            .then((response) => {
+            logger.trace(`Returning result from '${eventName}'`, correlationId);
+            inProgressEvent.end({
+                success: true,
+            });
+            return response;
+        })
+            .catch((e) => {
+            logger.trace(`Error occurred in '${eventName}'`, correlationId);
+            try {
+                logger.trace(JSON.stringify(e), correlationId);
+            }
+            catch (e) {
+                logger.trace("Unable to print error message.", correlationId);
+            }
+            inProgressEvent.end({
+                success: false,
+            }, e);
+            throw e;
+        });
+    };
+};
+
+/*! @azure/msal-common v16.5.2 2026-04-28 */
+
+/*
+ * Copyright (c) Microsoft Corporation. All rights reserved.
+ * Licensed under the MIT License.
+ */
+const KeyLocation = {
+    SW: "sw"};
+/** @internal */
+class PopTokenGenerator {
+    constructor(cryptoUtils, performanceClient) {
+        this.cryptoUtils = cryptoUtils;
+        this.performanceClient = performanceClient;
+    }
+    /**
+     * Generates the req_cnf validated at the RP in the POP protocol for SHR parameters
+     * and returns an object containing the keyid, the full req_cnf string and the req_cnf string hash
+     * @param request
+     * @returns
+     */
+    async generateCnf(request, logger) {
+        const reqCnf = await invokeAsync(this.generateKid.bind(this), PopTokenGenerateCnf, logger, this.performanceClient, request.correlationId)(request);
+        const reqCnfString = this.cryptoUtils.base64UrlEncode(JSON.stringify(reqCnf));
+        return {
+            kid: reqCnf.kid,
+            reqCnfString,
+        };
+    }
+    /**
+     * Generates key_id for a SHR token request
+     * @param request
+     * @returns
+     */
+    async generateKid(request) {
+        const kidThumbprint = await this.cryptoUtils.getPublicKeyThumbprint(request);
+        return {
+            kid: kidThumbprint,
+            xms_ksl: KeyLocation.SW,
+        };
+    }
+    /**
+     * Signs the POP access_token with the local generated key-pair
+     * @param accessToken
+     * @param request
+     * @returns
+     */
+    async signPopToken(accessToken, keyId, request) {
+        return this.signPayload(accessToken, keyId, request);
+    }
+    /**
+     * Utility function to generate the signed JWT for an access_token
+     * @param payload
+     * @param kid
+     * @param request
+     * @param claims
+     * @returns
+     */
+    async signPayload(payload, keyId, request, claims) {
+        // Deconstruct request to extract SHR parameters
+        const { resourceRequestMethod, resourceRequestUri, shrClaims, shrNonce, shrOptions, } = request;
+        const resourceUrlString = resourceRequestUri
+            ? new UrlString(resourceRequestUri)
+            : undefined;
+        const resourceUrlComponents = resourceUrlString?.getUrlComponents();
+        return this.cryptoUtils.signJwt({
+            at: payload,
+            ts: nowSeconds(),
+            m: resourceRequestMethod?.toUpperCase(),
+            u: resourceUrlComponents?.HostNameAndPort,
+            nonce: shrNonce || this.cryptoUtils.createNewGuid(),
+            p: resourceUrlComponents?.AbsolutePath,
+            q: resourceUrlComponents?.QueryString
+                ? [[], resourceUrlComponents.QueryString]
+                : undefined,
+            client_claims: shrClaims || undefined,
+            ...claims,
+        }, keyId, shrOptions, request.correlationId);
+    }
+}
+
+/*! @azure/msal-common v16.5.2 2026-04-28 */
+/*
+ * Copyright (c) Microsoft Corporation. All rights reserved.
+ * Licensed under the MIT License.
+ */
+/**
+ * MSAL-defined interaction required error code indicating no tokens are found in cache.
+ * @public
+ */
+const noTokensFound = "no_tokens_found";
+/**
+ * MSAL-defined error code indicating the refresh token has expired and user interaction is needed.
+ * @public
+ */
+const refreshTokenExpired = "refresh_token_expired";
+/**
+ * MSAL-defined error code indicating UI/UX is not allowed (e.g., blocked by policy), requiring alternate interaction.
+ * @public
+ */
+const uxNotAllowed = "ux_not_allowed";
+/**
+ * Server-originated error code indicating interaction is required to complete the request.
+ * @public
+ */
+const interactionRequired = "interaction_required";
+/**
+ * Server-originated error code indicating user consent is required.
+ * @public
+ */
+const consentRequired = "consent_required";
+/**
+ * Server-originated error code indicating user login is required.
+ * @public
+ */
+const loginRequired = "login_required";
+/**
+ * Server-originated error code indicating the token is invalid or corrupted.
+ * @public
+ */
+const badToken = "bad_token";
+/**
+ * Server-originated error code indicating the user is in an interrupted state and interaction is required.
+ * @public
+ */
+const interruptedUser = "interrupted_user";
+
+/*! @azure/msal-common v16.5.2 2026-04-28 */
+
+/*
+ * Copyright (c) Microsoft Corporation. All rights reserved.
+ * Licensed under the MIT License.
+ */
+/**
+ * InteractionRequiredServerErrorMessage contains string constants used by error codes and messages returned by the server indicating interaction is required
+ */
+const InteractionRequiredServerErrorMessage = [
+    interactionRequired,
+    consentRequired,
+    loginRequired,
+    badToken,
+    uxNotAllowed,
+    interruptedUser,
+];
+const InteractionRequiredAuthSubErrorMessage = [
+    "message_only",
+    "additional_action",
+    "basic_action",
+    "user_password_expired",
+    "consent_required",
+    "bad_token",
+    "ux_not_allowed",
+    "interrupted_user",
+];
+/**
+ * Error thrown when user interaction is required.
+ */
+class InteractionRequiredAuthError extends AuthError {
+    constructor(errorCode, errorMessage, subError, timestamp, traceId, correlationId, claims, errorNo) {
+        super(errorCode, errorMessage, subError);
+        Object.setPrototypeOf(this, InteractionRequiredAuthError.prototype);
+        this.timestamp = timestamp || "";
+        this.traceId = traceId || "";
+        this.correlationId = correlationId || "";
+        this.claims = claims || "";
+        this.name = "InteractionRequiredAuthError";
+        this.errorNo = errorNo;
+    }
+}
+/**
+ * Helper function used to determine if an error thrown by the server requires interaction to resolve
+ * @param errorCode
+ * @param errorString
+ * @param subError
+ */
+function isInteractionRequiredError(errorCode, errorString, subError) {
+    const isInteractionRequiredErrorCode = !!errorCode &&
+        InteractionRequiredServerErrorMessage.indexOf(errorCode) > -1;
+    const isInteractionRequiredSubError = !!subError &&
+        InteractionRequiredAuthSubErrorMessage.indexOf(subError) > -1;
+    const isInteractionRequiredErrorDesc = !!errorString &&
+        InteractionRequiredServerErrorMessage.some((irErrorCode) => {
+            return errorString.indexOf(irErrorCode) > -1;
+        });
+    return (isInteractionRequiredErrorCode ||
+        isInteractionRequiredErrorDesc ||
+        isInteractionRequiredSubError);
+}
+/**
+ * Creates an InteractionRequiredAuthError
+ */
+function createInteractionRequiredAuthError(errorCode, errorMessage) {
+    return new InteractionRequiredAuthError(errorCode, errorMessage);
+}
+
+/*! @azure/msal-common v16.5.2 2026-04-28 */
+
+/*
+ * Copyright (c) Microsoft Corporation. All rights reserved.
+ * Licensed under the MIT License.
+ */
+/**
+ * Error thrown when there is an error with the server code, for example, unavailability.
+ */
+class ServerError extends AuthError {
+    constructor(errorCode, errorMessage, subError, errorNo, status) {
+        super(errorCode, errorMessage, subError);
+        this.name = "ServerError";
+        this.errorNo = errorNo;
+        this.status = status;
+        Object.setPrototypeOf(this, ServerError.prototype);
+    }
+}
+
+/*! @azure/msal-common v16.5.2 2026-04-28 */
+/**
+ * Parses the state into the RequestStateObject, which contains the LibraryState info and the state passed by the user.
+ * @param base64Decode
+ * @param state
+ */
+function parseRequestState(base64Decode, state) {
+    if (!base64Decode) {
+        throw createClientAuthError(noCryptoObject);
+    }
+    if (!state) {
+        throw createClientAuthError(invalidState);
+    }
+    try {
+        // Split the state between library state and user passed state and decode them separately
+        const splitState = state.split(RESOURCE_DELIM);
+        const libraryState = splitState[0];
+        const userState = splitState.length > 1
+            ? splitState.slice(1).join(RESOURCE_DELIM)
+            : "";
+        const libraryStateString = base64Decode(libraryState);
+        const libraryStateObj = JSON.parse(libraryStateString);
+        return {
+            userRequestState: userState || "",
+            libraryState: libraryStateObj,
+        };
+    }
+    catch (e) {
+        throw createClientAuthError(invalidState);
+    }
+}
+
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -33920,7 +33962,7 @@ class ResponseHandler {
         if (serverTokenResponse.id_token && !!idTokenClaims) {
             cachedIdToken = createIdTokenEntity(this.homeAccountIdentifier, env, serverTokenResponse.id_token, this.clientId, claimsTenantId || "");
             cachedAccount = buildAccountToCache(this.cacheStorage, authority, this.homeAccountIdentifier, this.cryptoObj.base64Decode, request.correlationId, idTokenClaims, serverTokenResponse.client_info, env, claimsTenantId, authCodePayload, undefined, // nativeAccountId
-            this.logger);
+            this.logger, this.performanceClient);
         }
         // AccessToken
         let cachedAccessToken = null;
@@ -34071,17 +34113,24 @@ class ResponseHandler {
         };
     }
 }
-function buildAccountToCache(cacheStorage, authority, homeAccountId, base64Decode, correlationId, idTokenClaims, clientInfo, environment, claimsTenantId, authCodePayload, nativeAccountId, logger) {
+function buildAccountToCache(cacheStorage, authority, homeAccountId, base64Decode, correlationId, idTokenClaims, clientInfo, environment, claimsTenantId, authCodePayload, nativeAccountId, logger, performanceClient) {
     logger?.verbose("setCachedAccount called", correlationId);
-    // Check if base account is already cached
-    const accountKeys = cacheStorage.getAccountKeys();
-    const baseAccountKey = accountKeys.find((accountKey) => {
-        return accountKey.startsWith(homeAccountId);
-    });
-    let cachedAccount = null;
-    if (baseAccountKey) {
-        cachedAccount = cacheStorage.getAccount(baseAccountKey, correlationId);
+    /*
+     * Check if base account is already cached. Filter by homeAccountId (identifies
+     * the user's home identity) and environment (identifies the cloud) — the two
+     * tenant-agnostic properties that uniquely locate a base AccountEntity.
+     */
+    const accountEnvironment = environment || authority.getPreferredCache();
+    const matchedAccounts = cacheStorage.getAccountsFilteredBy({ homeAccountId, environment: accountEnvironment }, correlationId);
+    performanceClient?.addFields({ cacheMatchedAccounts: matchedAccounts.length }, correlationId);
+    if (matchedAccounts.length > 1) {
+        /*
+         * Base accounts are expected to be unique for a given homeAccountId in normal cache usage.
+         * If multiple matches exist, ignore the cache hit rather than arbitrarily choosing one.
+         */
+        logger?.warning("Multiple base accounts matched homeAccountId. Ignoring cached account and creating a new base account.", correlationId);
     }
+    const cachedAccount = matchedAccounts.length === 1 ? matchedAccounts[0] : null;
     const baseAccount = cachedAccount ||
         createAccountEntity({
             homeAccountId,
@@ -34105,7 +34154,7 @@ function buildAccountToCache(cacheStorage, authority, homeAccountId, base64Decod
     return baseAccount;
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License.
@@ -34115,7 +34164,7 @@ const CcsCredentialType = {
     UPN: "UPN",
 };
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License.
@@ -34133,7 +34182,7 @@ async function getClientAssertion(clientAssertion, clientId, tokenEndpoint) {
     }
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License.
@@ -34154,7 +34203,7 @@ function getRequestThumbprint(clientId, request, homeAccountId) {
     };
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -34240,7 +34289,7 @@ class ThrottlingUtils {
     }
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -34271,7 +34320,7 @@ function createNetworkError(error, httpStatus, responseHeaders, additionalError)
     return new NetworkError(error, httpStatus, responseHeaders);
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -34385,7 +34434,7 @@ async function sendPostRequest(thumbprint, tokenEndpoint, options, correlationId
     return response;
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License.
@@ -34397,7 +34446,7 @@ function isOpenIdConfigResponse(response) {
         response.hasOwnProperty("jwks_uri"));
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License.
@@ -34407,7 +34456,7 @@ function isCloudInstanceDiscoveryResponse(response) {
         response.hasOwnProperty("metadata"));
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License.
@@ -34417,7 +34466,7 @@ function isCloudInstanceDiscoveryErrorResponse(response) {
         response.hasOwnProperty("error_description"));
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -34522,7 +34571,7 @@ RegionDiscovery.IMDS_OPTIONS = {
     },
 };
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -35345,7 +35394,7 @@ function buildStaticAuthorityOptions(authOptions) {
     };
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -35379,7 +35428,7 @@ async function createDiscoveredInstance(authorityUri, networkClient, cacheManage
     }
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -35544,11 +35593,6 @@ class AuthorizationCodeClient {
                 throw createClientConfigurationError(missingSshJwk);
             }
         }
-        if (!StringUtils.isEmptyObj(request.claims) ||
-            (this.config.authOptions.clientCapabilities &&
-                this.config.authOptions.clientCapabilities.length > 0)) {
-            addClaims(parameters, request.claims, this.config.authOptions.clientCapabilities);
-        }
         let ccsCred = undefined;
         if (request.clientInfo) {
             try {
@@ -35597,6 +35641,7 @@ class AuthorizationCodeClient {
             });
         }
         instrumentBrokerParams(parameters, request.correlationId, this.performanceClient);
+        addClaims(parameters, request.claims, this.config.authOptions.clientCapabilities, request.skipBrokerClaims);
         return mapToQueryString(parameters);
     }
     /**
@@ -35640,7 +35685,7 @@ class AuthorizationCodeClient {
     }
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -35830,11 +35875,6 @@ class RefreshTokenClient {
                 throw createClientConfigurationError(missingSshJwk);
             }
         }
-        if (!StringUtils.isEmptyObj(request.claims) ||
-            (this.config.authOptions.clientCapabilities &&
-                this.config.authOptions.clientCapabilities.length > 0)) {
-            addClaims(parameters, request.claims, this.config.authOptions.clientCapabilities);
-        }
         if (this.config.systemOptions.preventCorsPreflight &&
             request.ccsCredential) {
             switch (request.ccsCredential.type) {
@@ -35861,11 +35901,12 @@ class RefreshTokenClient {
             });
         }
         instrumentBrokerParams(parameters, request.correlationId, this.performanceClient);
+        addClaims(parameters, request.claims, this.config.authOptions.clientCapabilities, request.skipBrokerClaims);
         return mapToQueryString(parameters);
     }
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -35981,7 +36022,7 @@ class SilentFlowClient {
     }
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -36097,14 +36138,10 @@ function getStandardAuthorizeRequestParameters(authOptions, request, logger, per
     if (request.state) {
         addState(parameters, request.state);
     }
-    if (request.claims ||
-        (authOptions.clientCapabilities &&
-            authOptions.clientCapabilities.length > 0)) {
-        addClaims(parameters, request.claims, authOptions.clientCapabilities);
-    }
     if (request.embeddedClientId) {
         addBrokerParameters(parameters, authOptions.clientId, authOptions.redirectUri);
     }
+    addClaims(parameters, request.claims, authOptions.clientCapabilities, request.skipBrokerClaims);
     // If extraQueryParameters includes instance_aware its value will be added when extraQueryParameters are added
     if (authOptions.instanceAware &&
         (!request.extraQueryParameters ||
@@ -36134,7 +36171,7 @@ function extractLoginHint(account) {
     return account.loginHint || account.idTokenClaims?.login_hint || null;
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -36167,10 +36204,10 @@ function containsResourceParam(params) {
     return Object.prototype.hasOwnProperty.call(params, "resource");
 }
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 const postRequestFailed = "post_request_failed";
 
-/*! @azure/msal-common v16.4.0 2026-03-18 */
+/*! @azure/msal-common v16.5.2 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -36431,7 +36468,7 @@ class ServerTelemetryManager {
     }
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -36605,7 +36642,7 @@ class Deserializer {
     }
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License.
@@ -36749,7 +36786,7 @@ const LOOPBACK_SERVER_CONSTANTS = {
 };
 const AZURE_ARC_SECRET_FILE_MAX_SIZE_BYTES = 4096; // 4 KB
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -36916,7 +36953,7 @@ function getFetchHeaders(options) {
     return headers;
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -36943,7 +36980,7 @@ const MsiEnvironmentVariableUrlMalformedErrorCodes = {
     [ManagedIdentityEnvironmentVariableNames.MSI_ENDPOINT]: "msi_endpoint_url_malformed",
 };
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -36987,7 +37024,7 @@ function createManagedIdentityError(errorCode) {
     return new ManagedIdentityError(errorCode);
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -37038,7 +37075,7 @@ class ManagedIdentityId {
     }
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -37146,7 +37183,7 @@ class NodeAuthError extends AuthError {
     }
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -37247,71 +37284,7 @@ function buildManagedIdentityConfiguration({ clientCapabilities, managedIdentity
     };
 }
 
-// Unique ID creation requires a high quality random # generator. In the browser we therefore
-// require the crypto API and do not support built-in fallback to lower quality random number
-// generators (like Math.random()).
-var getRandomValues;
-var rnds8 = new Uint8Array(16);
-function rng() {
-  // lazy load so that environments that need to polyfill have a chance to do so
-  if (!getRandomValues) {
-    // getRandomValues needs to be invoked in a context where "this" is a Crypto implementation. Also,
-    // find the complete implementation of crypto (msCrypto) on IE11.
-    getRandomValues = typeof crypto !== 'undefined' && crypto.getRandomValues && crypto.getRandomValues.bind(crypto) || typeof msCrypto !== 'undefined' && typeof msCrypto.getRandomValues === 'function' && msCrypto.getRandomValues.bind(msCrypto);
-
-    if (!getRandomValues) {
-      throw new Error('crypto.getRandomValues() not supported. See https://github.com/uuidjs/uuid#getrandomvalues-not-supported');
-    }
-  }
-
-  return getRandomValues(rnds8);
-}
-
-var REGEX = /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|00000000-0000-0000-0000-000000000000)$/i;
-
-function validate(uuid) {
-  return typeof uuid === 'string' && REGEX.test(uuid);
-}
-
-/**
- * Convert array of 16 byte values to UUID string format of the form:
- * XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
- */
-
-var byteToHex = [];
-
-for (var i = 0; i < 256; ++i) {
-  byteToHex.push((i + 0x100).toString(16).substr(1));
-}
-
-function stringify(arr) {
-  var offset = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0;
-  // Note: Be careful editing this code!  It's been tuned for performance
-  // and works in ways you may not expect. See https://github.com/uuidjs/uuid/pull/434
-  var uuid = (byteToHex[arr[offset + 0]] + byteToHex[arr[offset + 1]] + byteToHex[arr[offset + 2]] + byteToHex[arr[offset + 3]] + '-' + byteToHex[arr[offset + 4]] + byteToHex[arr[offset + 5]] + '-' + byteToHex[arr[offset + 6]] + byteToHex[arr[offset + 7]] + '-' + byteToHex[arr[offset + 8]] + byteToHex[arr[offset + 9]] + '-' + byteToHex[arr[offset + 10]] + byteToHex[arr[offset + 11]] + byteToHex[arr[offset + 12]] + byteToHex[arr[offset + 13]] + byteToHex[arr[offset + 14]] + byteToHex[arr[offset + 15]]).toLowerCase(); // Consistency check for valid UUID.  If this throws, it's likely due to one
-  // of the following:
-  // - One or more input array values don't map to a hex octet (leading to
-  // "undefined" in the uuid)
-  // - Invalid input values for the RFC `version` or `variant` fields
-
-  if (!validate(uuid)) {
-    throw TypeError('Stringified UUID is invalid');
-  }
-
-  return uuid;
-}
-
-function v4(options, buf, offset) {
-  options = options || {};
-  var rnds = options.random || (options.rng || rng)(); // Per 4.4, set bits for version and `clock_seq_hi_and_reserved`
-
-  rnds[6] = rnds[6] & 0x0f | 0x40;
-  rnds[8] = rnds[8] & 0x3f | 0x80; // Copy bytes to buffer, if provided
-
-  return stringify(rnds);
-}
-
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -37319,12 +37292,11 @@ function v4(options, buf, offset) {
  */
 class GuidGenerator {
     /**
-     *
-     * RFC4122: The version 4 UUID is meant for generating UUIDs from truly-random or pseudo-random numbers.
-     * uuidv4 generates guids from cryprtographically-string random
+     * Generates a random [RFC 4122](https://www.rfc-editor.org/rfc/rfc4122.txt) version 4 UUID. The UUID is generated using a
+     * cryptographic pseudorandom number generator.
      */
     generateGuid() {
-        return v4();
+        return randomUUID$1();
     }
     /**
      * verifies if a string is  GUID
@@ -37336,7 +37308,7 @@ class GuidGenerator {
     }
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -37383,7 +37355,7 @@ class EncodingUtils {
     }
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -37399,7 +37371,7 @@ class HashUtils {
     }
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -37453,7 +37425,7 @@ class PkceGenerator {
     }
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -37547,7 +37519,7 @@ class CryptoProvider {
     }
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -37583,7 +37555,7 @@ function generateAccountKey(account) {
     return accountKey.join(CACHE.KEY_SEPARATOR).toLowerCase();
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -37957,7 +37929,7 @@ class NodeStorage extends CacheManager {
         return [...Object.keys(cache)];
     }
     /**
-     * Clears all cache entries created by MSAL (except tokens).
+     * Clears all cache entries created by MSAL except authority metadata..
      */
     clear() {
         this.logger.trace("Clearing cache entries created by MSAL", "");
@@ -37965,6 +37937,9 @@ class NodeStorage extends CacheManager {
         const cacheKeys = this.getKeys();
         // delete each element
         cacheKeys.forEach((key) => {
+            if (this.isAuthorityMetadata(key)) {
+                return;
+            }
             this.removeItem(key);
         });
         this.emitChange();
@@ -38004,7 +37979,7 @@ class NodeStorage extends CacheManager {
     }
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -44705,7 +44680,7 @@ function requireJsonwebtoken () {
 var jsonwebtokenExports = requireJsonwebtoken();
 var jwt = /*@__PURE__*/getDefaultExportFromCjs(jsonwebtokenExports);
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License.
@@ -44718,7 +44693,7 @@ const deviceCodePollingCancelled = "device_code_polling_cancelled";
 const deviceCodeExpired = "device_code_expired";
 const deviceCodeUnknownError = "device_code_unknown_error";
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -44864,12 +44839,12 @@ class ClientAssertion {
     }
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 /* eslint-disable header/header */
 const name = "@azure/msal-node";
-const version = "5.1.1";
+const version = "5.1.5";
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -44932,7 +44907,7 @@ class BaseClient {
     }
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -45032,7 +45007,7 @@ class UsernamePasswordClient extends BaseClient {
     }
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -45069,7 +45044,7 @@ function getAuthCodeRequestUrl(config, authority, request, logger) {
     return getAuthorizeUrl(authority, parameters);
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -45424,14 +45399,14 @@ class ClientApplication {
         return createDiscoveredInstance(authorityUrl, this.config.system.networkClient, this.storage, authorityOptions, this.logger, requestCorrelationId, new StubPerformanceClient());
     }
     /**
-     * Clear the cache
+     * Clear the cache except for authority metadata.
      */
     clearCache() {
         this.storage.clear();
     }
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -45516,7 +45491,7 @@ class LoopbackClient {
     }
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -45730,7 +45705,7 @@ class DeviceCodeClient extends BaseClient {
     }
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -46006,7 +45981,7 @@ class PublicClientApplication extends ClientApplication {
     }
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -46205,7 +46180,7 @@ class ClientCredentialClient extends BaseClient {
     }
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -46409,7 +46384,7 @@ class OnBehalfOfClient extends BaseClient {
     }
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -46594,7 +46569,7 @@ class ConfidentialClientApplication extends ClientApplication {
     }
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License.
@@ -46614,7 +46589,7 @@ function isIso8601(dateString) {
     return !isNaN(date.getTime()) && date.toISOString() === dateString;
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -46655,7 +46630,7 @@ class HttpClientWithRetries {
     }
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -46891,7 +46866,7 @@ BaseManagedIdentitySource.getValidatedEnvVariableUrlString = (envVariableStringN
     }
 };
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License.
@@ -46924,7 +46899,7 @@ class LinearRetryStrategy {
     }
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -46968,7 +46943,7 @@ class DefaultManagedIdentityRetryPolicy {
     }
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -47001,7 +46976,7 @@ class ManagedIdentityRequestParameters {
     }
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -47104,7 +47079,7 @@ class AppService extends BaseManagedIdentitySource {
     }
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -47341,7 +47316,7 @@ class AzureArc extends BaseManagedIdentitySource {
     }
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -47436,7 +47411,7 @@ class CloudShell extends BaseManagedIdentitySource {
     }
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License.
@@ -47473,7 +47448,7 @@ class ExponentialRetryStrategy {
     }
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -47558,7 +47533,7 @@ class ImdsRetryPolicy {
     }
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -47659,7 +47634,7 @@ class Imds extends BaseManagedIdentitySource {
     }
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -47775,7 +47750,7 @@ class ServiceFabric extends BaseManagedIdentitySource {
     }
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -47897,7 +47872,7 @@ class MachineLearning extends BaseManagedIdentitySource {
     }
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
@@ -47964,7 +47939,7 @@ class ManagedIdentityClient {
     }
 }
 
-/*! @azure/msal-node v5.1.1 2026-03-18 */
+/*! @azure/msal-node v5.1.5 2026-04-28 */
 
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved.
