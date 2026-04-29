@@ -103,7 +103,7 @@ describe('packageVsExtension', () => {
   it('resolves relative outputPath ending in .vsix against workingDirectory for file existence check', async () => {
     const workingDirectory = '/work/extension';
     const relativeOutputPath = 'dist/MyExt.vsix';
-    const resolvedPath = path.join(workingDirectory, relativeOutputPath);
+    const resolvedPath = path.resolve(workingDirectory, relativeOutputPath);
 
     const options: PackageOptions = {
       vsixManifest: '/work/extension/source.extension.vsixmanifest',
