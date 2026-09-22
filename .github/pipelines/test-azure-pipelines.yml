@@ -48,6 +48,26 @@ stages:
         steps:
           - checkout: self
 
+          # Acquire a short-lived marketplace bearer token (always, regardless of
+          # connectionType) so the version-stamping step below can look up the
+          # extension's currently published version via the Gallery REST API.
+          - task: AzureCLI@2
+            displayName: Get marketplace bearer token for version lookup
+            inputs:
+              azureSubscription: ${{ parameters.azureRmConnection }}
+              allowNoSubscriptions: true
+              scriptType: pscore
+              useGlobalConfig: true
+              scriptLocation: inlineScript
+              inlineScript: |
+                $token = az account get-access-token `
+                  --resource 499b84ac-1321-427f-aa17-267ca6975798 `
+                  --query accessToken --output tsv
+                if (-not $token) {
+                  throw 'Failed to acquire Azure DevOps bearer token'
+                }
+                Write-Host "##vso[task.setvariable variable=marketplaceAccessToken;issecret=true]$token"
+
           # For PAT matrix entries, acquire a short-lived marketplace token at
           # runtime from the OIDC-backed Azure RM connection so no PAT secret is
           # stored. Resolve the VsMarketplacePublishing service connection by name
@@ -110,6 +130,19 @@ stages:
                 Write-Host "##vso[task.setsecret]$token"
                 Write-Host "##vso[task.setendpoint id=$marketplaceServiceConnectionId;field=authParameter;key=password]$token"
 
+          # Publish the same fixture twice fails on the marketplace ("version already exists"),
+          # so look up the currently published version and stamp the next one onto a copy.
+          - task: PowerShell@2
+            displayName: Stamp unique test .vsix version
+            inputs:
+              targetType: filePath
+              filePath: Scripts/Stamp-TestVsix.ps1
+              arguments: >-
+                -SourcePath tests/sample-extension/vs-marketplace-test-1.0.0.vsix
+                -OutputPath $(Agent.TempDirectory)/vs-marketplace-test-stamped.vsix
+                -PublisherId ${{ parameters.publisherId }}
+                -AccessToken $(marketplaceAccessToken)
+
           # --- Publish: push the pre-built .vsix fixture to the Visual Studio Marketplace ---
           - task: vs-marketplace@6
             displayName: Publish VS extension
@@ -117,6 +150,6 @@ stages:
               connectionType: ${{ parameters.connectionType }}
               connectionNamePAT: ${{ parameters.marketplaceServiceConnectionName }}
               connectionNameAzureRM: ${{ parameters.azureRmConnection }}
-              vsixFile: tests/sample-extension/vs-marketplace-test-1.0.0.vsix
+              vsixFile: $(Agent.TempDirectory)/vs-marketplace-test-stamped.vsix
               manifestFile: tests/sample-extension/publish-manifest.json
               publisherId: ${{ parameters.publisherId }}

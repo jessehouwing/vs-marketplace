@@ -75,7 +75,6 @@ jobs:
 
       - id: azure-devops-token
         name: Get Azure DevOps bearer token
-        if: ${{ inputs.auth-type == 'pat' }}
         shell: pwsh
         run: |
           $token = az account get-access-token `
@@ -84,11 +83,20 @@ jobs:
           Write-Host "::add-mask::$token"
           "token=$token" >> $env:GITHUB_OUTPUT
 
+      - name: Stamp unique test .vsix version
+        id: stamp-vsix
+        shell: pwsh
+        run: |
+          ./Scripts/Stamp-TestVsix.ps1 `
+            -SourcePath tests/sample-extension/vs-marketplace-test-1.0.0.vsix `
+            -OutputPath "$env:RUNNER_TEMP/vs-marketplace-test-stamped.vsix" `
+            -AccessToken "${{ steps.azure-devops-token.outputs.token }}"
+
       - name: Publish VS extension
         uses: $/
         with:
           auth-type: ${{ inputs.auth-type }}
           token: ${{ inputs.auth-type == 'pat' && steps.azure-devops-token.outputs.token || '' }}
-          vsix-file: tests/sample-extension/vs-marketplace-test-1.0.0.vsix
+          vsix-file: ${{ runner.temp }}/vs-marketplace-test-stamped.vsix
           manifest-file: tests/sample-extension/publish-manifest.json
           publisher-id: ${{ env.PUBLISHER_ID }}
