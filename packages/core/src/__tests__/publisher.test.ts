@@ -25,21 +25,24 @@ describe('VsixPublisher', () => {
 
   describe('login', () => {
     it('should login successfully with valid credentials', async () => {
-      adapter.setExecMockResponse(0);
+      adapter.setExecOutputResponseQueue([
+        { code: 0, stdout: 'C:\\VS\\VsixPublisher.exe', stderr: '' }, // vswhere
+        { code: 0, stdout: "Publisher 'test-publisher' is now logged-in.", stderr: '' }, // login
+      ]);
 
       await publisher.login('test-publisher', 'test-token');
 
-      const execCalls = adapter.getExecCalls();
-      expect(execCalls).toHaveLength(1);
-      expect(execCalls[0].command).toBe('C:\\VS\\VsixPublisher.exe');
-      expect(execCalls[0].args).toEqual([
+      const execOutputCalls = adapter.getExecOutputCalls();
+      expect(execOutputCalls).toHaveLength(2);
+      expect(execOutputCalls[1].command).toBe('C:\\VS\\VsixPublisher.exe');
+      expect(execOutputCalls[1].args).toEqual([
         'login',
         '-personalAccessToken',
         'test-token',
         '-publisherName',
         'test-publisher',
       ]);
-      expect(execCalls[0].options?.failOnStdErr).toBe(true);
+      expect(execOutputCalls[1].options?.failOnStdErr).toBe(false);
 
       const logs = adapter.getLogs();
       expect(logs.info).toContain("Logging in as 'test-publisher'");
@@ -47,20 +50,73 @@ describe('VsixPublisher', () => {
     });
 
     it('should throw error when login fails', async () => {
-      adapter.setExecMockResponse(1);
+      adapter.setExecOutputResponseQueue([
+        { code: 0, stdout: 'C:\\VS\\VsixPublisher.exe', stderr: '' }, // vswhere
+        { code: 1, stdout: '', stderr: 'Invalid personal access token.' }, // login
+      ]);
 
       await expect(publisher.login('test-publisher', 'test-token')).rejects.toThrow(
         'Login failed.'
       );
     });
 
+    it('should treat the known VsixPublisher.exe telemetry-teardown crash as a login failure with a diagnostic message', async () => {
+      adapter.setExecOutputResponseQueue([
+        { code: 0, stdout: 'C:\\VS\\VsixPublisher.exe', stderr: '' }, // vswhere
+        {
+          code: 1,
+          stdout: "VSSDK: information VsixPub0041 : Publisher 'test-publisher' is now logged-in.",
+          stderr:
+            "Unhandled Exception: System.IO.FileLoadException: Could not load file or assembly " +
+            "'System.Memory, Version=4.0.5.0, ...'\n" +
+            '   at Microsoft.VisualStudio.Telemetry.Common.Utilities.NativeMethods.GetFullProcessExeNameWindows()',
+        }, // login: known telemetry-teardown crash
+      ]);
+
+      await expect(publisher.login('test-publisher', 'test-token')).rejects.toThrow(
+        'Login failed.'
+      );
+
+      const logs = adapter.getLogs();
+      expect(
+        logs.error.some((log) =>
+          log.includes('known issue caused by a broken/mismatched System.Memory assembly')
+        )
+      ).toBe(true);
+    });
+
+    it('should throw a plain login failure for unrelated errors without the crash diagnostic', async () => {
+      adapter.setExecOutputResponseQueue([
+        { code: 0, stdout: 'C:\\VS\\VsixPublisher.exe', stderr: '' }, // vswhere
+        {
+          code: 1,
+          stdout: '',
+          stderr: 'Invalid personal access token.',
+        }, // login: unrelated failure
+      ]);
+
+      await expect(publisher.login('test-publisher', 'test-token')).rejects.toThrow(
+        'Login failed.'
+      );
+
+      const logs = adapter.getLogs();
+      expect(
+        logs.error.some((log) =>
+          log.includes('known issue caused by a broken/mismatched System.Memory assembly')
+        )
+      ).toBe(false);
+    });
+
     it('should use vswhere to find VsixPublisher.exe', async () => {
-      adapter.setExecMockResponse(0);
+      adapter.setExecOutputResponseQueue([
+        { code: 0, stdout: 'C:\\VS\\VsixPublisher.exe', stderr: '' }, // vswhere
+        { code: 0, stdout: "Publisher 'test-publisher' is now logged-in.", stderr: '' }, // login
+      ]);
 
       await publisher.login('test-publisher', 'test-token');
 
       const execOutputCalls = adapter.getExecOutputCalls();
-      expect(execOutputCalls).toHaveLength(1);
+      expect(execOutputCalls).toHaveLength(2);
       expect(execOutputCalls[0].command).toBe(
         'C:\\Program Files (x86)\\Microsoft Visual Studio\\Installer\\vswhere.exe'
       );
