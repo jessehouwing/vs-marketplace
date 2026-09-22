@@ -67,7 +67,7 @@ describe('VsixPublisher', () => {
           code: 1,
           stdout: "VSSDK: information VsixPub0041 : Publisher 'test-publisher' is now logged-in.",
           stderr:
-            "Unhandled Exception: System.IO.FileLoadException: Could not load file or assembly " +
+            'Unhandled Exception: System.IO.FileLoadException: Could not load file or assembly ' +
             "'System.Memory, Version=4.0.5.0, ...'\n" +
             '   at Microsoft.VisualStudio.Telemetry.Common.Utilities.NativeMethods.GetFullProcessExeNameWindows()',
         }, // login: known telemetry-teardown crash
