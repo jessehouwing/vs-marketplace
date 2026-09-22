@@ -453,6 +453,85 @@ function runCommand(command, args, cwd) {
   });
 }
 
+async function buildWorkspaceDependencies(target) {
+  const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+  const tscBuildArgs = [
+    'exec',
+    '--',
+    'tsc',
+    '-b',
+    '--force',
+    path.join('packages', 'core', 'tsconfig.json'),
+    path.join(target.packageDir, 'tsconfig.json'),
+  ];
+
+  console.log(`Refreshing TypeScript build outputs for ${target.name}...`);
+  await runCommand(npmCommand, tscBuildArgs, rootDir);
+}
+
+function runCommandForOutput(command, args, cwd) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd,
+      shell: false,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk.toString();
+    });
+
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    child.on('error', reject);
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve(stdout);
+        return;
+      }
+
+      const detail = stderr.trim() || stdout.trim();
+      reject(
+        new Error(
+          `Command failed (${code}): ${command} ${args.join(' ')}${detail ? `\n${detail}` : ''}`
+        )
+      );
+    });
+  });
+}
+
+async function getChangedFilesInDirectory(directory) {
+  const relativeDirectory = path.relative(rootDir, directory) || '.';
+  const output = await runCommandForOutput(
+    'git',
+    ['status', '--porcelain=v1', '--untracked-files=all', '--', relativeDirectory],
+    rootDir
+  );
+
+  return output
+    .split(/\r?\n/)
+    .map((line) => line.trimEnd())
+    .filter(Boolean)
+    .map((line) => {
+      const pathText = line.slice(3);
+      const resolvedPath = pathText.includes(' -> ') ? pathText.split(' -> ').at(-1) : pathText;
+      return path.resolve(rootDir, resolvedPath);
+    })
+    .filter((fullPath) => {
+      const relativeToDirectory = path.relative(directory, fullPath);
+      return (
+        relativeToDirectory &&
+        !relativeToDirectory.startsWith('..') &&
+        !path.isAbsolute(relativeToDirectory)
+      );
+    });
+}
+
 const runtimeNpmFlags = [
   '--omit=dev',
   '--omit=optional',
@@ -463,9 +542,17 @@ const runtimeNpmFlags = [
   '--no-fund',
 ];
 
-async function installRuntimeDependencies(target) {
+async function installRuntimeDependencies(target, frozen = false) {
   const distDir = path.join(rootDir, target.packageDir, 'dist');
   const nodeModulesDir = path.join(distDir, 'node_modules');
+  const lockfilePath = path.join(distDir, 'package-lock.json');
+  const useCi = frozen && (await pathExists(lockfilePath));
+
+  if (frozen && !useCi) {
+    console.log(
+      `No committed lockfile for ${target.name}; falling back to 'npm install' in frozen mode.`
+    );
+  }
 
   const resetNodeModules = async () => {
     try {
@@ -499,9 +586,11 @@ async function installRuntimeDependencies(target) {
   await resetNodeModules();
 
   const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-  const installArgs = ['install', ...runtimeNpmFlags];
+  const installArgs = [useCi ? 'ci' : 'install', ...runtimeNpmFlags];
 
-  console.log(`Installing runtime dependencies for ${target.name}...`);
+  console.log(
+    `${useCi ? 'Restoring (npm ci)' : 'Installing'} runtime dependencies for ${target.name}...`
+  );
   try {
     await runCommand(npmCommand, installArgs, distDir);
   } catch (error) {
@@ -541,44 +630,57 @@ async function dedupeRuntimeDependencies(target) {
 }
 
 async function normalizeTextLineEndings(directory) {
+  const textExtensions = new Set([
+    '.js',
+    '.mjs',
+    '.cjs',
+    '.ts',
+    '.mts',
+    '.cts',
+    '.json',
+    '.jsonc',
+    '.yaml',
+    '.yml',
+    '.md',
+    '.txt',
+    '.html',
+    '.css',
+    '.sh',
+    '.cmd',
+    '.bat',
+    '.ps1',
+    '.xml',
+    '.svg',
+  ]);
+
   try {
     await fs.access(directory);
   } catch {
     return;
   }
 
-  const stack = [directory];
+  const changedFiles = await getChangedFilesInDirectory(directory);
 
-  while (stack.length > 0) {
-    const current = stack.pop();
-    if (!current) {
+  for (const fullPath of changedFiles) {
+    if (!(await pathExists(fullPath))) {
       continue;
     }
 
-    const entries = await fs.readdir(current, { withFileTypes: true });
-    for (const entry of entries) {
-      const fullPath = path.join(current, entry.name);
+    const ext = path.extname(fullPath).toLowerCase();
+    if (ext && !textExtensions.has(ext)) {
+      continue;
+    }
 
-      if (entry.isDirectory()) {
-        stack.push(fullPath);
-        continue;
-      }
+    const content = await fs.readFile(fullPath);
 
-      if (!entry.isFile()) {
-        continue;
-      }
+    if (content.includes(0)) {
+      continue;
+    }
 
-      const content = await fs.readFile(fullPath);
-
-      // Skip likely binary files.
-      if (content.includes(0)) {
-        continue;
-      }
-
-      const normalized = content.toString('utf8').replace(/\r\n/g, '\n');
-      if (normalized !== content.toString('utf8')) {
-        await fs.writeFile(fullPath, normalized, 'utf8');
-      }
+    const text = content.toString('utf8');
+    const normalized = text.replace(/\r\n/g, '\n');
+    if (normalized !== text) {
+      await fs.writeFile(fullPath, normalized, 'utf8');
     }
   }
 }
@@ -654,7 +756,16 @@ async function removeMapArtifacts(directory) {
 }
 
 function resolveTargetsFromArgs() {
-  const mode = (process.argv[2] || 'all').toLowerCase();
+  const args = process.argv.slice(2);
+  const flags = args.filter((arg) => arg.startsWith('--'));
+  const frozen = flags.includes('--frozen');
+
+  const unknownFlags = flags.filter((flag) => flag !== '--frozen');
+  if (unknownFlags.length > 0) {
+    throw new Error(`Unknown bundle flag(s): ${unknownFlags.join(', ')}. Supported: --frozen`);
+  }
+
+  const mode = (args.find((arg) => !arg.startsWith('--')) || 'all').toLowerCase();
   const selector = targetSelectors[mode];
 
   if (!selector) {
@@ -666,26 +777,61 @@ function resolveTargetsFromArgs() {
     throw new Error(`No bundle targets matched mode '${mode}'`);
   }
 
-  return selectedTargets;
+  return { selectedTargets, frozen };
 }
 
 async function bundle() {
-  const selectedTargets = resolveTargetsFromArgs();
+  const { selectedTargets, frozen } = resolveTargetsFromArgs();
+  const bundleStart = performance.now();
 
   for (const target of selectedTargets) {
     const distDir = path.join(rootDir, target.packageDir, 'dist');
-    console.log(`Bundling ${target.name}...`);
+    const targetStart = performance.now();
+    const step = (label) => {
+      const elapsed = ((performance.now() - targetStart) / 1000).toFixed(1);
+      console.log(`  [${elapsed}s] ${label}`);
+    };
+
+    console.log(`\nBundling ${target.name}...`);
+    await buildWorkspaceDependencies(target);
+    step('refresh workspace builds');
+
     await buildWithRollup(target);
+    step('rollup build');
     await removeDeclarationArtifacts(distDir);
     await removeMapArtifacts(distDir);
+    step('remove artifacts');
 
     await writeRuntimeDependencyManifest(target);
-    await installRuntimeDependencies(target);
-    await dedupeRuntimeDependencies(target);
-    await normalizeTextLineEndings(path.join(rootDir, target.packageDir, 'dist', 'node_modules'));
+    step('write dependency manifest');
+
+    await installRuntimeDependencies(target, frozen);
+    step(frozen ? 'npm ci (frozen)' : 'npm install');
+
+    if (frozen) {
+      step('skip npm dedupe + audit fix (frozen)');
+    } else {
+      await dedupeRuntimeDependencies(target);
+      step('npm dedupe + audit fix');
+    }
+
+    if (target.name === 'GitHub Action') {
+      await normalizeTextLineEndings(distDir);
+      step('normalize line endings');
+    }
+
     await copyBundledModuleResources(target);
+    step('copy bundled module resources');
     await copyRuntimeAssets(target);
-    console.log(`✓ ${target.name} bundled`);
+    step('copy runtime assets');
+
+    const totalSeconds = ((performance.now() - targetStart) / 1000).toFixed(1);
+    console.log(`✓ ${target.name} bundled in ${totalSeconds}s`);
+  }
+
+  const grandTotal = ((performance.now() - bundleStart) / 1000).toFixed(1);
+  if (selectedTargets.length > 1) {
+    console.log(`\n✓ All targets bundled in ${grandTotal}s`);
   }
 }
 
