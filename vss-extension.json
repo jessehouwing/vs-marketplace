@@ -27,7 +27,7 @@
   "public": true,
   "preview": true,
   "icons": {
-    "default": "packages/azdo-task/icon.png"
+    "default": "Metadata/Images/tools-icon.png"
   },
   "content": {
     "details": {
@@ -38,6 +38,9 @@
     }
   },
   "files": [
+    {
+      "path": "Metadata/Images/tools-icon.png"
+    },
     {
       "path": "packages/azdo-task/task.json"
     },
@@ -61,6 +64,9 @@
       "id": "vs-marketplace-endpoint-type",
       "type": "ms.vss-endpoint.service-endpoint-type",
       "targets": ["ms.vss-endpoint.endpoint-types"],
+      "icons": {
+        "default": "packages/azdo-task/icon.png"
+      },
       "properties": {
         "name": "VsMarketplacePublishing",
         "displayName": "VS Marketplace - Visual Studio Marketplace",
