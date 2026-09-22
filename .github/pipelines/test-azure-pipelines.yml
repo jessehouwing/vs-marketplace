@@ -34,7 +34,7 @@ parameters:
     default: fdeb6c4d-4557-4355-a9f8-594ac4fb3db1
   - name: marketplaceServiceConnectionName
     type: string
-    default: ca702db9-f203-4430-82a7-02109ac28c33
+    default: ecc95f54-6da9-45ee-9917-2d351728ee70
 
 stages:
   - stage: Test
