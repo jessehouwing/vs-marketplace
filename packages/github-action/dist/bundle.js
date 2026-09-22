@@ -59983,12 +59983,14 @@ class VsixPublisher {
         });
         if (result.code !== 0 || result.stderr.trim().length > 0) {
             if (isLoginTelemetryCrash(result.stderr)) {
-                this.adapter.error('VsixPublisher.exe crashed while tearing down its telemetry session (unhandled ' +
+                const diagnostic = 'VsixPublisher.exe crashed while tearing down its telemetry session (unhandled ' +
                     'System.Memory FileLoadException). This is a known issue caused by a broken/mismatched ' +
                     'System.Memory assembly on this runner image, not a problem with your credentials or ' +
                     'extension - see ' +
                     'https://developercommunity.visualstudio.com/t/VsixPublisher-crashes-with-SystemIOFil/10552685. ' +
-                    'Try a different runner image, or re-run the job.');
+                    'Try a different runner image, or re-run the job.';
+                this.adapter.error(diagnostic);
+                throw new Error(`Login failed: ${diagnostic}`);
             }
             throw new Error('Login failed.');
         }

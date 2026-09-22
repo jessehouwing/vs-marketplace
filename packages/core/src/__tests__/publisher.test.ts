@@ -74,7 +74,7 @@ describe('VsixPublisher', () => {
       ]);
 
       await expect(publisher.login('test-publisher', 'test-token')).rejects.toThrow(
-        'Login failed.'
+        /known issue caused by a broken\/mismatched System\.Memory assembly/
       );
 
       const logs = adapter.getLogs();
