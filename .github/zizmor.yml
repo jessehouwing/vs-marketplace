@@ -8,3 +8,9 @@
 rules:
   unpinned-uses:
     disable: true
+  # Dependabot cooldowns are intentionally set to 3 days for this repo
+  # (short enough to keep security patches flowing quickly, long enough to
+  # avoid yanked/broken releases). zizmor's recommended >= 7 days is a
+  # generic default, not a requirement for this repo's release cadence.
+  dependabot-cooldown:
+    disable: true

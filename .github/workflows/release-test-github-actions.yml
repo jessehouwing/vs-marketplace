@@ -4,26 +4,6 @@ name: Test GitHub Actions
 run-name: Test GitHub Actions v${{ inputs.version || inputs.ref || github.ref_name || github.ref }} (${{ inputs.os || 'windows-latest' }}, ${{ inputs.auth-type || 'pat' }})
 
 on:
-  workflow_call:
-    inputs:
-      ref:
-        description: 'Git ref to test'
-        required: true
-        type: string
-      version:
-        description: 'Release version being tested'
-        required: false
-        type: string
-      os:
-        description: 'Runner OS for GitHub Action validation'
-        required: false
-        type: string
-        default: windows-latest
-      auth-type:
-        description: 'Authentication mode to validate'
-        required: false
-        type: string
-        default: pat
   workflow_dispatch:
     inputs:
       ref:

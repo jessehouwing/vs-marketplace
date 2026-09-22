@@ -4,22 +4,6 @@ name: Test Azure Pipelines
 run-name: Test Azure Pipelines v${{ inputs.version || github.ref_name || github.ref }} (${{ inputs.connection-type || 'PAT' }}, ${{ inputs.vm-image || 'windows-latest' }})
 
 on:
-  workflow_call:
-    inputs:
-      version:
-        description: 'Release version being tested'
-        required: true
-        type: string
-      vm-image:
-        description: 'Azure Pipelines hosted image to validate'
-        required: false
-        type: string
-        default: windows-latest
-      connection-type:
-        description: 'Azure Pipelines connection type to validate'
-        required: false
-        type: string
-        default: PAT
   workflow_dispatch:
     inputs:
       version:

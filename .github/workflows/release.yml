@@ -83,8 +83,10 @@ jobs:
 
       - name: Validate version format
         shell: pwsh
+        env:
+          RESOLVED_VERSION: ${{ steps.resolve.outputs.version }}
         run: |
-          if ('${{ steps.resolve.outputs.version }}' -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') {
+          if ($env:RESOLVED_VERSION -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') {
             Write-Host '::error::Version must be in format x.y.z (for example 6.1.0)'
             exit 1
           }
@@ -92,13 +94,15 @@ jobs:
       - name: Parse version components
         id: parse
         shell: pwsh
+        env:
+          RESOLVED_VERSION: ${{ steps.resolve.outputs.version }}
         run: |
-          $major, $minor, $patch = '${{ steps.resolve.outputs.version }}'.Split('.')
+          $major, $minor, $patch = $env:RESOLVED_VERSION.Split('.')
           "major=$major" >> $env:GITHUB_OUTPUT
           "minor=$minor" >> $env:GITHUB_OUTPUT
           "patch=$patch" >> $env:GITHUB_OUTPUT
 
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@v7.0.1 # zizmor: ignore[artipacked]
         with:
           ref: ${{ github.ref }}
           fetch-depth: 0
@@ -107,8 +111,9 @@ jobs:
         shell: pwsh
         env:
           SOURCE_REF_NAME: ${{ github.ref_name }}
+          RESOLVED_VERSION: ${{ steps.resolve.outputs.version }}
         run: |
-          $branch = 'release/v${{ steps.resolve.outputs.version }}'
+          $branch = "release/v$env:RESOLVED_VERSION"
           git ls-remote --exit-code --heads origin $branch *> $null
           if ($LASTEXITCODE -eq 0) {
             Write-Host "Branch $branch already exists, checking it out"
@@ -139,7 +144,10 @@ jobs:
         run: npm ci
 
       - name: Update version references
-        run: node Scripts/update-version.mjs ${{ steps.resolve.outputs.version }}
+        env:
+          RESOLVED_VERSION: ${{ steps.resolve.outputs.version }}
+        run: node Scripts/update-version.mjs "$env:RESOLVED_VERSION"
+        shell: pwsh
 
       - name: Format
         continue-on-error: true
@@ -202,8 +210,10 @@ jobs:
 
       - name: Commit and push changes
         shell: pwsh
+        env:
+          RESOLVED_VERSION: ${{ steps.resolve.outputs.version }}
         run: |
-          $branch = 'release/v${{ steps.resolve.outputs.version }}'
+          $branch = "release/v$env:RESOLVED_VERSION"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
@@ -212,7 +222,7 @@ jobs:
             Write-Host 'No changes to commit'
           }
           else {
-            git commit -m 'chore: prepare release v${{ steps.resolve.outputs.version }}'
+            git commit -m "chore: prepare release v$env:RESOLVED_VERSION"
           }
           git push origin "HEAD:$branch"
 
@@ -575,7 +585,7 @@ jobs:
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@v7.0.1 # zizmor: ignore[artipacked]
         with:
           ref: release/v${{ needs.prepare-release.outputs.version }}
           fetch-depth: 0
@@ -595,8 +605,10 @@ jobs:
 
       - name: Create version tag
         shell: pwsh
+        env:
+          RELEASE_VERSION: v${{ needs.prepare-release.outputs.version }}
         run: |
-          $version = 'v${{ needs.prepare-release.outputs.version }}'
+          $version = $env:RELEASE_VERSION
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git tag -fa $version -m "Release $version" HEAD
@@ -678,7 +690,10 @@ jobs:
     permissions: {}
     steps:
       - name: Approved
-        run: echo "Approved release v${{ needs.prepare-release.outputs.version }} for immutable release and Marketplace publish."
+        env:
+          RELEASE_VERSION: v${{ needs.prepare-release.outputs.version }}
+        shell: pwsh
+        run: Write-Host "Approved release $env:RELEASE_VERSION for immutable release and Marketplace publish."
 
   publish-production:
     name: Publish to marketplace
@@ -748,7 +763,9 @@ jobs:
 
       - name: Skip publish (version already deployed)
         if: steps.check-version.outputs.current-version == needs.prepare-release.outputs.version
-        run: Write-Host "Version ${{ needs.prepare-release.outputs.version }} is already published, skipping publish and re-checking validation."
+        env:
+          RELEASE_VERSION: ${{ needs.prepare-release.outputs.version }}
+        run: Write-Host "Version $env:RELEASE_VERSION is already published, skipping publish and re-checking validation."
         shell: pwsh
 
       - name: Publish production extension
@@ -783,7 +800,7 @@ jobs:
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@v7.0.1 # zizmor: ignore[artipacked]
         with:
           ref: release/v${{ needs.prepare-release.outputs.version }}
           fetch-depth: 0
@@ -791,18 +808,23 @@ jobs:
       - name: Publish draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_VERSION: v${{ needs.prepare-release.outputs.version }}
+          GITHUB_REPOSITORY_NAME: ${{ github.repository }}
         shell: pwsh
         run: |
-          $version = 'v${{ needs.prepare-release.outputs.version }}'
-          gh release edit $version --repo '${{ github.repository }}' --draft=false
+          $version = $env:RELEASE_VERSION
+          gh release edit $version --repo $env:GITHUB_REPOSITORY_NAME --draft=false
 
       - name: Update floating tags
         shell: pwsh
+        env:
+          MAJOR_VERSION: v${{ needs.prepare-release.outputs.major }}
+          MAJOR_MINOR_VERSION: v${{ needs.prepare-release.outputs.major }}.${{ needs.prepare-release.outputs.minor }}
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          $major = 'v${{ needs.prepare-release.outputs.major }}'
-          $majorMinor = 'v${{ needs.prepare-release.outputs.major }}.${{ needs.prepare-release.outputs.minor }}'
+          $major = $env:MAJOR_VERSION
+          $majorMinor = $env:MAJOR_MINOR_VERSION
           git tag -fa $major -m "Floating tag $major" HEAD
           git push origin $major --force
           git tag -fa $majorMinor -m "Floating tag $majorMinor" HEAD
