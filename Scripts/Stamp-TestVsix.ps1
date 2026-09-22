@@ -30,7 +30,7 @@
     then to an unauthenticated request.
 
 .PARAMETER Version
-    Optional explicit version to stamp (must be a 4-part dotted quad, each part 0-65535),
+    Optional explicit version to stamp (3- or 4-part dotted version, e.g. 1.0.1 or 1.0.1234.5678),
     bypassing the Marketplace lookup entirely.
 #>
 [CmdletBinding()]
@@ -67,10 +67,14 @@ function Get-NextMarketplaceVersion {
         [string]$AccessToken
     )
 
-    $uri = "https://marketplace.visualstudio.com/_apis/public/gallery/publishers/$PublisherId/extensions/$ExtensionId" +
-        '?api-version=6.1-preview.1'
+    # The public gallery endpoint (_apis/public/gallery/...) only returns data for extensions
+    # visible without authentication, so it 404s for private extensions even with a valid PAT.
+    # Use the authenticated gallery endpoint instead, with flags=1 (IncludeVersions) to get the
+    # currently published version.
+    $uri = "https://marketplace.visualstudio.com/_apis/gallery/publishers/$PublisherId/extensions/$ExtensionId" +
+        '?flags=1&api-version=7.2-preview.1'
 
-    $headers = @{ Accept = 'application/json;api-version=6.1-preview.1' }
+    $headers = @{ Accept = 'application/json;api-version=7.2-preview.1' }
     if (-not $AccessToken) {
         $AccessToken = $env:VSS_PAT
     }
@@ -91,19 +95,17 @@ function Get-NextMarketplaceVersion {
 
     $currentVersion = $response.versions | Select-Object -First 1 -ExpandProperty version -ErrorAction SilentlyContinue
     if (-not $currentVersion) {
-        Write-Host "No published versions found for '$PublisherId.$ExtensionId'. Starting at 1.0.0.0."
-        return '1.0.0.0'
+        Write-Host "No published versions found for '$PublisherId.$ExtensionId'. Starting at 1.0.0."
+        return '1.0.0'
     }
 
     Write-Host "Currently published version of '$PublisherId.$ExtensionId': $currentVersion"
 
     $parts = $currentVersion.Split('.') | ForEach-Object { [int]$_ }
-    while ($parts.Count -lt 4) {
-        $parts += 0
-    }
+    $lastIndex = $parts.Count - 1
 
-    $parts[3]++
-    for ($i = 3; $i -gt 0 -and $parts[$i] -gt 65535; $i--) {
+    $parts[$lastIndex]++
+    for ($i = $lastIndex; $i -gt 0 -and $parts[$i] -gt 65535; $i--) {
         $parts[$i] = 0
         $parts[$i - 1]++
     }
@@ -115,8 +117,8 @@ if (-not $Version) {
     $Version = Get-NextMarketplaceVersion -PublisherId $PublisherId -ExtensionId $ExtensionId -AccessToken $AccessToken
 }
 
-if ($Version -notmatch '^\d+\.\d+\.\d+\.\d+$') {
-    throw "Version must be a 4-part dotted quad (e.g. 1.0.1234.5678), got: $Version"
+if ($Version -notmatch '^\d+\.\d+\.\d+(\.\d+)?$') {
+    throw "Version must be a 3- or 4-part dotted version (e.g. 1.0.1 or 1.0.1234.5678), got: $Version"
 }
 
 $outputDir = Split-Path -Parent $OutputPath
