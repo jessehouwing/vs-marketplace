@@ -341,39 +341,218 @@ jobs:
             https://dev.azure.com/jessehouwing
 
   test-azure-pipelines:
-    name: Test Azure Pipelines (${{ matrix.connection-type }})
+    name: Test Azure Pipelines v${{ needs.prepare-release.outputs.version }} (${{ matrix.connection-type }})
     needs: [prepare-release, preview-release]
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         connection-type: [PAT, AzureRM]
-    uses: ./.github/workflows/release-test-azure-pipelines.yml
-    with:
-      version: ${{ needs.prepare-release.outputs.version }}
-      vm-image: windows-latest
-      connection-type: ${{ matrix.connection-type }}
-    secrets: inherit
+    environment:
+      name: publisher-jessehouwing
+      url: ${{ steps.dispatch.outputs.run_url }}
     permissions:
-      contents: read
-      id-token: write
+      actions: write
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@v2.21.1
+        with:
+          egress-policy: audit
+
+      - name: Dispatch and wait for the Azure Pipelines test workflow
+        id: dispatch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_VERSION: ${{ needs.prepare-release.outputs.version }}
+          VM_IMAGE: windows-latest
+          CONNECTION_TYPE: ${{ matrix.connection-type }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $timeoutSeconds = 3600
+          $intervalSeconds = 30
+
+          $runUrl = gh workflow run release-test-azure-pipelines.yml `
+            --repo $env:GITHUB_REPOSITORY `
+            --ref $env:GITHUB_REF_NAME `
+            -f "version=$env:RELEASE_VERSION" `
+            -f "vm-image=$env:VM_IMAGE" `
+            -f "connection-type=$env:CONNECTION_TYPE"
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Failed to dispatch release-test-azure-pipelines.yml.'
+          }
+
+          $runId = $runUrl.Trim().Split('/')[-1]
+          if ($runId -notmatch '^[0-9]+$') {
+            throw "gh workflow run did not return a run URL: $runUrl"
+          }
+
+          "run_id=$runId" >> $env:GITHUB_OUTPUT
+          $runUrl = "https://github.com/$env:GITHUB_REPOSITORY/actions/runs/$runId"
+          "run_url=$runUrl" >> $env:GITHUB_OUTPUT
+          "- Azure Pipelines test run [$($env:CONNECTION_TYPE)]: [$runId]($runUrl)" >> $env:GITHUB_STEP_SUMMARY
+          Write-Host "Triggered release-test-azure-pipelines.yml run: $runId"
+          Write-Host "Workflow URL: $runUrl"
+
+          $elapsed = 0
+          while ($elapsed -lt $timeoutSeconds) {
+            $status = gh run view $runId --repo $env:GITHUB_REPOSITORY --json status --jq '.status'
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to query run $runId status."
+            }
+
+            $status = $status.Trim()
+            if ($status -eq 'completed') {
+              $conclusion = gh run view $runId --repo $env:GITHUB_REPOSITORY --json conclusion --jq '.conclusion'
+              if ($LASTEXITCODE -ne 0) {
+                throw "Failed to query run $runId conclusion."
+              }
+
+              $conclusion = $conclusion.Trim()
+              Write-Host "Run $runId completed with conclusion: $conclusion"
+              if ($conclusion -eq 'success') {
+                exit 0
+              }
+
+              throw "release-test-azure-pipelines.yml run $runId finished with conclusion: $conclusion"
+            }
+
+            Write-Host "Run $runId status: $status ($elapsed`s elapsed)"
+            Start-Sleep -Seconds $intervalSeconds
+            $elapsed += $intervalSeconds
+          }
+
+          throw "release-test-azure-pipelines.yml run $runId timed out after $timeoutSeconds seconds"
+
+      - name: Cancel Azure Pipelines verification run if parent workflow was cancelled
+        if: ${{ cancelled() && steps.dispatch.outputs.run_id != '' }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ steps.dispatch.outputs.run_id }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not $env:RUN_ID) {
+            exit 0
+          }
+
+          try {
+            gh run cancel $env:RUN_ID --repo $env:GITHUB_REPOSITORY
+            Write-Host "Cancelled Azure Pipelines verification run $($env:RUN_ID) because the parent release workflow was cancelled."
+          }
+          catch {
+            Write-Warning "Unable to cancel Azure Pipelines verification run $($env:RUN_ID): $($_.Exception.Message)"
+            exit 0
+          }
 
   test-github-actions:
-    name: Test GitHub Actions (${{ matrix.auth-type }})
+    name: Test GitHub Actions v${{ needs.prepare-release.outputs.version }} (${{ matrix.auth-type }})
     needs: [prepare-release, validate-documentation-versions]
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         auth-type: [pat, oidc]
-    uses: ./.github/workflows/release-test-github-actions.yml
-    with:
-      ref: release/v${{ needs.prepare-release.outputs.version }}
-      version: ${{ needs.prepare-release.outputs.version }}
-      os: windows-latest
-      auth-type: ${{ matrix.auth-type }}
-    secrets: inherit
+    environment:
+      name: publisher-jessehouwing
+      url: ${{ steps.dispatch.outputs.run_url }}
     permissions:
-      contents: read
-      id-token: write
+      actions: write
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@v2.21.1
+        with:
+          egress-policy: audit
+
+      - name: Dispatch and wait for the GitHub Actions test workflow
+        id: dispatch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: release/v${{ needs.prepare-release.outputs.version }}
+          RELEASE_VERSION: ${{ needs.prepare-release.outputs.version }}
+          OS: windows-latest
+          AUTH_TYPE: ${{ matrix.auth-type }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $timeoutSeconds = 3600
+          $intervalSeconds = 15
+
+          $runUrl = gh workflow run release-test-github-actions.yml `
+            --repo $env:GITHUB_REPOSITORY `
+            --ref $env:BRANCH `
+            -f "ref=$env:BRANCH" `
+            -f "version=$env:RELEASE_VERSION" `
+            -f "os=$env:OS" `
+            -f "auth-type=$env:AUTH_TYPE"
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Failed to dispatch release-test-github-actions.yml.'
+          }
+
+          $runId = $runUrl.Trim().Split('/')[-1]
+          if ($runId -notmatch '^[0-9]+$') {
+            throw "gh workflow run did not return a run URL: $runUrl"
+          }
+
+          "run_id=$runId" >> $env:GITHUB_OUTPUT
+          $runUrl = "https://github.com/$env:GITHUB_REPOSITORY/actions/runs/$runId"
+          "run_url=$runUrl" >> $env:GITHUB_OUTPUT
+          "- GitHub Actions test run [$($env:AUTH_TYPE), $($env:OS)]: [$runId]($runUrl)" >> $env:GITHUB_STEP_SUMMARY
+          Write-Host "Triggered release-test-github-actions.yml run: $runId"
+          Write-Host "Workflow URL: $runUrl"
+
+          $elapsed = 0
+          while ($elapsed -lt $timeoutSeconds) {
+            $status = gh run view $runId --repo $env:GITHUB_REPOSITORY --json status --jq '.status'
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to query run $runId status."
+            }
+
+            $status = $status.Trim()
+            if ($status -eq 'completed') {
+              $conclusion = gh run view $runId --repo $env:GITHUB_REPOSITORY --json conclusion --jq '.conclusion'
+              if ($LASTEXITCODE -ne 0) {
+                throw "Failed to query run $runId conclusion."
+              }
+
+              $conclusion = $conclusion.Trim()
+              Write-Host "Run $runId completed with conclusion: $conclusion"
+              if ($conclusion -eq 'success') {
+                exit 0
+              }
+
+              throw "release-test-github-actions.yml run $runId finished with conclusion: $conclusion"
+            }
+
+            Write-Host "Run $runId status: $status ($elapsed`s elapsed)"
+            Start-Sleep -Seconds $intervalSeconds
+            $elapsed += $intervalSeconds
+          }
+
+          throw "release-test-github-actions.yml run $runId timed out after $timeoutSeconds seconds"
+
+      - name: Cancel GitHub Actions verification run if parent workflow was cancelled
+        if: ${{ cancelled() && steps.dispatch.outputs.run_id != '' }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ steps.dispatch.outputs.run_id }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not $env:RUN_ID) {
+            exit 0
+          }
+
+          try {
+            gh run cancel $env:RUN_ID --repo $env:GITHUB_REPOSITORY
+            Write-Host "Cancelled GitHub Actions verification run $($env:RUN_ID) because the parent release workflow was cancelled."
+          }
+          catch {
+            Write-Warning "Unable to cancel GitHub Actions verification run $($env:RUN_ID): $($_.Exception.Message)"
+            exit 0
+          }
 
   create-release:
     name: Create GitHub draft release
