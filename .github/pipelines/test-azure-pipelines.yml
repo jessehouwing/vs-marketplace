@@ -1,10 +1,10 @@
 # Test Azure Pipelines
 #
 # Triggered by the release workflow to validate the vs-marketplace Azure
-# Pipelines task against a minimal Visual Studio extension sample. Tests both
-# the Package and Publish operations for a single auth + OS scenario. The
-# matrix fan-out lives in GitHub Actions so each scenario is visible directly
-# in the Actions summary.
+# Pipelines task against a minimal Visual Studio extension sample, using a
+# static pre-built .vsix fixture. Tests the Publish operation for a single
+# auth + OS scenario. The matrix fan-out lives in GitHub Actions so each
+# scenario is visible directly in the Actions summary.
 #
 # Required service connections:
 #   MarketplacePatConnection     - PAT service connection (VsMarketplacePublishing type)
@@ -110,23 +110,13 @@ stages:
                 Write-Host "##vso[task.setsecret]$token"
                 Write-Host "##vso[task.setendpoint id=$marketplaceServiceConnectionId;field=authParameter;key=password]$token"
 
-          # --- Package: build the .vsix from the minimal VS extension manifest ---
-          - task: vs-marketplace@6
-            name: packageStep
-            displayName: Package VS extension
-            inputs:
-              operation: Package
-              vsixManifest: tests/sample-extension/source.extension.vsixmanifest
-              outputPath: $(Build.ArtifactStagingDirectory)
-
-          # --- Publish: push the packaged .vsix to the Visual Studio Marketplace ---
+          # --- Publish: push the pre-built .vsix fixture to the Visual Studio Marketplace ---
           - task: vs-marketplace@6
             displayName: Publish VS extension
             inputs:
-              operation: Publish
               connectionType: ${{ parameters.connectionType }}
               connectionNamePAT: ${{ parameters.marketplaceServiceConnectionName }}
               connectionNameAzureRM: ${{ parameters.azureRmConnection }}
-              vsixFile: $(packageStep.vsixFile)
+              vsixFile: tests/sample-extension/vs-marketplace-test-1.0.0.vsix
               manifestFile: tests/sample-extension/publish-manifest.json
               publisherId: ${{ parameters.publisherId }}
