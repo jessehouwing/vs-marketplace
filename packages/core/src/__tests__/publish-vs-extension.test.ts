@@ -45,12 +45,12 @@ describe('publishVsExtension', () => {
     const execCalls = adapter.getExecCalls();
     const execOutputCalls = adapter.getExecOutputCalls();
 
-    // Login and publish are async exec calls; vswhere lookup and logout use execOutput.
-    expect(execCalls.length).toBeGreaterThanOrEqual(2);
-    expect(execOutputCalls.length).toBeGreaterThanOrEqual(2);
+    // Login, vswhere lookup, and logout use execOutput; publish uses exec.
+    expect(execCalls.length).toBeGreaterThanOrEqual(1);
+    expect(execOutputCalls.length).toBeGreaterThanOrEqual(3);
 
     // Check login call
-    const loginCall = execCalls.find((call) => call.args.includes('login'));
+    const loginCall = execOutputCalls.find((call) => call.args.includes('login'));
     expect(loginCall).toBeDefined();
     expect(loginCall?.args).toContain('-personalAccessToken');
     expect(loginCall?.args).toContain('test-token-12345');
@@ -83,7 +83,13 @@ describe('publishVsExtension', () => {
   });
 
   it('should handle login errors and set failure result', async () => {
-    adapter.setExecMockResponse(1); // Fail on first exec (login)
+    const originalExecOutput = adapter.execOutput.bind(adapter);
+    adapter.execOutput = async (command, args, options) => {
+      if (args.includes('login')) {
+        return { code: 1, stdout: '', stderr: 'Invalid personal access token.' };
+      }
+      return originalExecOutput(command, args, options);
+    };
 
     await expect(publishVsExtension(options, adapter)).rejects.toThrow('Login failed.');
 
@@ -96,16 +102,7 @@ describe('publishVsExtension', () => {
   });
 
   it('should handle publish errors and set failure result', async () => {
-    let callCount = 0;
-    const originalExec = adapter.exec.bind(adapter);
-    adapter.exec = async (command, args, options) => {
-      callCount++;
-      if (callCount === 2) {
-        // Fail on second call (publish)
-        return 1;
-      }
-      return originalExec(command, args, options);
-    };
+    adapter.exec = async () => 1; // Fail on publish (login now uses execOutput)
 
     await expect(publishVsExtension(options, adapter)).rejects.toThrow('Publish failed.');
 
@@ -114,15 +111,7 @@ describe('publishVsExtension', () => {
   });
 
   it('should attempt logout even if publish fails', async () => {
-    let callCount = 0;
-    adapter.exec = async (_command, _args) => {
-      callCount++;
-      if (callCount === 2) {
-        // Fail on publish
-        return 1;
-      }
-      return 0;
-    };
+    adapter.exec = async () => 1; // Fail on publish (login now uses execOutput)
 
     await expect(publishVsExtension(options, adapter)).rejects.toThrow();
 
@@ -186,7 +175,8 @@ describe('publishVsExtension', () => {
     await publishVsExtension(options, adapter);
 
     const execCalls = adapter.getExecCalls();
-    const loginCall = execCalls.find((call) => call.args.includes('login'));
+    const execOutputCalls = adapter.getExecOutputCalls();
+    const loginCall = execOutputCalls.find((call) => call.args.includes('login'));
     const publishCall = execCalls.find((call) => call.args.includes('publish'));
 
     expect(loginCall?.options?.cwd).toBe('C:\\my-extension');
@@ -197,7 +187,8 @@ describe('publishVsExtension', () => {
     await publishVsExtension(options, adapter);
 
     const execCalls = adapter.getExecCalls();
-    const loginCall = execCalls.find((call) => call.args.includes('login'));
+    const execOutputCalls = adapter.getExecOutputCalls();
+    const loginCall = execOutputCalls.find((call) => call.args.includes('login'));
     const publishCall = execCalls.find((call) => call.args.includes('publish'));
 
     expect(loginCall?.options?.cwd).toBeUndefined();

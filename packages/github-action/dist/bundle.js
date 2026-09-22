@@ -59872,6 +59872,25 @@ var TaskResult;
     TaskResult[TaskResult["Failed"] = 1] = "Failed";
 })(TaskResult || (TaskResult = {}));
 
+/**
+ * VsixPublisher.exe has a long-standing, intermittently-recurring bug where its `login` command
+ * crashes with an unhandled System.IO.FileLoadException for System.Memory while tearing down its
+ * telemetry session on process exit. See
+ * https://developercommunity.visualstudio.com/t/VsixPublisher-crashes-with-SystemIOFil/10552685
+ * (marked "Fixed In: Visual Studio 2022 version 17.8.4", but still observed to recur on hosted
+ * Azure DevOps/GitHub-hosted agent images with a broken/mismatched System.Memory assembly).
+ *
+ * This is detected so we can surface a clear, actionable diagnostic instead of a generic
+ * "Login failed." - but it is still treated as a failure: a crash means VsixPublisher.exe did not
+ * exit cleanly, so we cannot be certain the login session it established is actually usable for
+ * the subsequent `publish` call.
+ */
+function isLoginTelemetryCrash(stderr) {
+    const stderrLower = stderr.toLowerCase();
+    return (stderrLower.includes('unhandled exception') &&
+        stderrLower.includes('microsoft.visualstudio.telemetry') &&
+        (stderrLower.includes('system.memory') || stderrLower.includes('fileloadexception')));
+}
 class VsixPublisher {
     adapter;
     workingDirectory;
@@ -59956,11 +59975,20 @@ class VsixPublisher {
         this.adapter.info(`Logging in as '${publisherId}'`);
         const vsixPublisher = await this.getVsixPublisherExe();
         const args = ['login', '-personalAccessToken', token, '-publisherName', publisherId];
-        const exitCode = await this.adapter.exec(vsixPublisher, args, {
-            failOnStdErr: true,
+        const result = await this.adapter.execOutput(vsixPublisher, args, {
+            failOnStdErr: false,
+            ignoreReturnCode: true,
             cwd: this.workingDirectory,
         });
-        if (exitCode !== 0) {
+        if (result.code !== 0 || result.stderr.trim().length > 0) {
+            if (isLoginTelemetryCrash(result.stderr)) {
+                this.adapter.error('VsixPublisher.exe crashed while tearing down its telemetry session (unhandled ' +
+                    'System.Memory FileLoadException). This is a known issue caused by a broken/mismatched ' +
+                    'System.Memory assembly on this runner image, not a problem with your credentials or ' +
+                    'extension - see ' +
+                    'https://developercommunity.visualstudio.com/t/VsixPublisher-crashes-with-SystemIOFil/10552685. ' +
+                    'Try a different runner image, or re-run the job.');
+            }
             throw new Error('Login failed.');
         }
         this.loggedIn = true;
