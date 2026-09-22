@@ -65,5 +65,5 @@ outputs:
     description: 'Full path to the packaged .vsix file (set when operation is package)'
 
 runs:
-  using: 'node20'
+  using: 'node24'
   main: 'packages/github-action/dist/bundle.js'
