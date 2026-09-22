@@ -19,7 +19,9 @@
 
     When -ManifestPath / -ManifestOutputPath are supplied, the publish-manifest.json's
     identity.internalName is rewritten to match -ExtensionId as well, so the manifest handed to
-    VsixPublisher.exe stays consistent with the stamped .vsix.
+    VsixPublisher.exe stays consistent with the stamped .vsix. Relative paths in the manifest
+    (e.g. "overview") are rewritten to absolute paths pointing back at the original manifest's
+    directory, since VsixPublisher.exe resolves them relative to the manifest file's own location.
 
 .PARAMETER SourcePath
     Path to the source tests/sample-extension .vsix fixture (left untouched).
@@ -207,6 +209,15 @@ if ($ManifestPath) {
 
     $manifestJson = Get-Content -LiteralPath $ManifestPath -Raw | ConvertFrom-Json
     $manifestJson.identity.internalName = $ExtensionId
+
+    # VsixPublisher.exe resolves relative paths (e.g. "overview") relative to the manifest file's
+    # own directory, so rewrite them to absolute paths pointing back at the original manifest's
+    # directory now that the stamped copy lives elsewhere (e.g. a temp directory).
+    $sourceManifestDir = Split-Path -Parent (Resolve-Path -LiteralPath $ManifestPath).Path
+    if ($manifestJson.overview -and -not [System.IO.Path]::IsPathRooted($manifestJson.overview)) {
+        $manifestJson.overview = (Resolve-Path -LiteralPath (Join-Path $sourceManifestDir $manifestJson.overview)).Path
+    }
+
     $manifestJson | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $ManifestOutputPath -Encoding utf8
 
     Write-Host "Stamped $ManifestOutputPath with identity.internalName '$ExtensionId'"
