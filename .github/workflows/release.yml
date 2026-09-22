@@ -488,7 +488,8 @@ jobs:
 
   release-approval:
     name: Approve release and publish
-    needs: [prepare-release, preview-release, test-azure-pipelines, test-github-actions, create-release]
+    needs:
+      [prepare-release, preview-release, test-azure-pipelines, test-github-actions, create-release]
     if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
     environment:
@@ -500,7 +501,14 @@ jobs:
 
   publish-production:
     name: Publish to marketplace
-    needs: [prepare-release, preview-release, test-azure-pipelines, test-github-actions, release-approval]
+    needs:
+      [
+        prepare-release,
+        preview-release,
+        test-azure-pipelines,
+        test-github-actions,
+        release-approval,
+      ]
     if: ${{ !inputs.dry_run }}
     runs-on: windows-latest
     environment:

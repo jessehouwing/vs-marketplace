@@ -5,48 +5,48 @@
 
 version: 2
 updates:
-- package-ecosystem: 'github-actions'
-  directory: '/'
-  schedule:
-    interval: 'weekly'
-  cooldown:
-    default-days: 3
-  groups:
-    minor-updates:
-      update-types:
-      - minor
-      - patch
-- package-ecosystem: 'npm'
-  directory: '/'
-  schedule:
-    interval: 'weekly'
-  cooldown:
-    default-days: 3
-  groups:
-    ESLint:
-      patterns:
-      - eslint
-      - '@typescript-eslint/*'
-      - '@eslint/*'
-      - typescript-eslint
-    rollup:
-      patterns:
-      - '@rollup/*'
-    minor-updates:
-      dependency-type: production
-      update-types:
-      - minor
-      - patch
-    development-dependencies:
-      dependency-type: development
-- package-ecosystem: 'pip'
-  directory: '/'
-  schedule:
-    interval: 'weekly'
-  cooldown:
-    default-days: 3
-  groups:
-    minor-updates:
-      update-types:
-      - minor
-      - patch
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    cooldown:
+      default-days: 3
+    groups:
+      minor-updates:
+        update-types:
+          - minor
+          - patch
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    cooldown:
+      default-days: 3
+    groups:
+      ESLint:
+        patterns:
+          - eslint
+          - '@typescript-eslint/*'
+          - '@eslint/*'
+          - typescript-eslint
+      rollup:
+        patterns:
+          - '@rollup/*'
+      minor-updates:
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+      development-dependencies:
+        dependency-type: development
+  - package-ecosystem: 'pip'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    cooldown:
+      default-days: 3
+    groups:
+      minor-updates:
+        update-types:
+          - minor
+          - patch

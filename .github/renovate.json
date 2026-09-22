@@ -1,15 +1,10 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "local>jessehouwing/.github:renovate-config"
-  ],
+  "extends": ["local>jessehouwing/.github:renovate-config"],
   "minimumReleaseAge": "3 days",
   "azure-pipelines": {
     "enabled": true,
-    "fileMatch": [
-      "(^|/)azure-pipelines\\.ya?ml$",
-      "(^|/)\\.github/pipelines/.*\\.ya?ml$"
-    ]
+    "fileMatch": ["(^|/)azure-pipelines\\.ya?ml$", "(^|/)\\.github/pipelines/.*\\.ya?ml$"]
   },
   "npm": {
     "enabled": false
@@ -19,9 +14,7 @@
   },
   "packageRules": [
     {
-      "matchDatasources": [
-        "azure-pipelines-tasks"
-      ],
+      "matchDatasources": ["azure-pipelines-tasks"],
       "extractVersion": "^(?<version>\\d+)"
     }
   ]
