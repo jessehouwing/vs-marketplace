@@ -39,6 +39,13 @@ updates:
           - patch
       development-dependencies:
         dependency-type: development
+    ignore:
+      # Node 24 is the current LTS; @types/node is pinned to match.
+      - dependency-name: '@types/node'
+        versions: ['>=25']
+      # TypeScript 7 (native/Go port) is not yet compatible with our ts-jest/ts-node toolchain.
+      - dependency-name: 'typescript'
+        versions: ['>=7']
   - package-ecosystem: 'pip'
     directory: '/'
     schedule:
