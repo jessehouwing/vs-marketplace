@@ -53,6 +53,11 @@ export interface IPlatformAdapter {
   findMatch(root: string, patterns: string[]): Promise<string[]>;
 
   /**
+   * Ensure a directory exists, creating it (and parents) if necessary
+   */
+  ensureDirectory(dirPath: string): void;
+
+  /**
    * Set task result
    */
   setResult(result: TaskResult, message: string): void;

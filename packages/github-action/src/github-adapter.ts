@@ -1,7 +1,7 @@
 import * as core from '@actions/core';
 import * as exec from '@actions/exec';
 import * as glob from '@actions/glob';
-import { existsSync } from 'fs';
+import { existsSync, mkdirSync } from 'fs';
 import path from 'path';
 import { IPlatformAdapter, ExecOptions, ExecResult, TaskResult } from '@vs-marketplace/core';
 
@@ -103,5 +103,9 @@ export class GitHubAdapter implements IPlatformAdapter {
     } else {
       core.info(message);
     }
+  }
+
+  ensureDirectory(dirPath: string): void {
+    mkdirSync(dirPath, { recursive: true });
   }
 }

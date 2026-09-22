@@ -16,11 +16,11 @@ describe('packageVsExtension', () => {
   };
 
   const vsixUtil = 'C:\\VS\\VSIXUtil.exe';
-  const vsixOutputPath = 'C:\\output\\MyExt.vsix';
+  const vsixOutputPath = 'C:\\output\\extension.vsix';
 
   function setupVsixUtil() {
     adapter.setFileExists(vsixUtil, true);
-    adapter.setFindMatchMockResponse([vsixOutputPath]);
+    adapter.setFileExists(vsixOutputPath, true);
     adapter.setExecOutputResponseQueue([
       { code: 0, stdout: vsixUtil, stderr: '' },
       { code: 0, stdout: '', stderr: '' },
@@ -44,14 +44,14 @@ describe('packageVsExtension', () => {
     expect(outputCalls[1].args).toContain(baseOptions.vsixManifest);
   });
 
-  it('passes output path to VSIXUtil', async () => {
+  it('passes a resolved .vsix file path (not the bare directory) to VSIXUtil', async () => {
     setupVsixUtil();
 
     await packageVsExtension(baseOptions, adapter);
 
     const outputCalls = adapter.getExecOutputCalls();
     expect(outputCalls[1].args).toContain('-outputPath');
-    expect(outputCalls[1].args).toContain(baseOptions.outputPath);
+    expect(outputCalls[1].args).toContain(vsixOutputPath);
   });
 
   it('passes files manifest when provided', async () => {
