@@ -86,9 +86,9 @@ jobs:
       - name: Stamp unique test .vsix version
         id: stamp-vsix
         env:
-          # Matrix combinations run concurrently, so each one must publish to its own private
-          # extension (rather than racing for the "next" version of a shared one).
-          EXTENSION_ID: vs-marketplace-test-actions-${{ inputs.auth-type }}
+          # Matrix combinations (auth-type x os) run concurrently, so each one must publish to
+          # its own private extension (rather than racing for the "next" version of a shared one).
+          EXTENSION_ID: vs-marketplace-test-actions-${{ inputs.auth-type }}-${{ inputs.os }}
         shell: pwsh
         run: |
           ./Scripts/Stamp-TestVsix.ps1 `

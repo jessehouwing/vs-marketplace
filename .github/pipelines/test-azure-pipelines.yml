@@ -11,7 +11,9 @@
 #   MarketplaceAzureRmConnection - Azure RM (OIDC) service connection
 #
 # Required parameters per run:
-#   vmImage        - Hosted agent image (windows-latest only; VSIXUtil and VsixPublisher require Windows)
+#   vmImage        - Hosted agent image; must be Windows with VsixPublisher.exe (VS + VSSDK
+#                    component) available, e.g. windows-latest, windows-2025-vs2026,
+#                    windows-11-vs2026-arm. See https://github.com/actions/runner-images#available-images
 #   connectionType - PAT | AzureRM
 
 name: test-$(Date:yyyyMMdd)$(Rev:.r)
@@ -131,10 +133,10 @@ stages:
                 Write-Host "##vso[task.setendpoint id=$marketplaceServiceConnectionId;field=authParameter;key=password]$token"
 
           # Publish the same fixture twice fails on the marketplace ("version already exists").
-          # PAT and AzureRM matrix legs run concurrently, so each must publish to its own private
-          # extension (rather than racing for the "next" version of a shared one); look up the
-          # currently published version of that scenario's extension and stamp the next one onto
-          # a copy of the fixture (and manifest).
+          # connectionType x vmImage matrix legs run concurrently, so each must publish to its
+          # own private extension (rather than racing for the "next" version of a shared one);
+          # look up the currently published version of that scenario's extension and stamp the
+          # next one onto a copy of the fixture (and manifest).
           - task: PowerShell@2
             displayName: Stamp unique test .vsix version
             inputs:
@@ -144,7 +146,7 @@ stages:
                 -SourcePath tests/sample-extension/vs-marketplace-test-1.0.0.vsix
                 -OutputPath $(Agent.TempDirectory)/vs-marketplace-test-stamped.vsix
                 -PublisherId ${{ parameters.publisherId }}
-                -ExtensionId vs-marketplace-test-azdo-${{ lower(parameters.connectionType) }}
+                -ExtensionId vs-marketplace-test-azdo-${{ lower(parameters.connectionType) }}-${{ lower(parameters.vmImage) }}
                 -AccessToken $(marketplaceAccessToken)
                 -ManifestPath tests/sample-extension/publish-manifest.json
                 -ManifestOutputPath $(Agent.TempDirectory)/publish-manifest-stamped.json

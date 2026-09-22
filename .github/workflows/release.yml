@@ -356,13 +356,18 @@ jobs:
             https://dev.azure.com/jessehouwing
 
   test-azure-pipelines:
-    name: Test Azure Pipelines v${{ needs.prepare-release.outputs.version }} (${{ matrix.connection-type }})
+    name: Test Azure Pipelines v${{ needs.prepare-release.outputs.version }} (${{ matrix.connection-type }}, ${{ matrix.vm-image }})
     needs: [prepare-release, preview-release]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         connection-type: [PAT, AzureRM]
+        # Cover every hosted image that ships VsixPublisher.exe (Visual Studio + the VSSDK
+        # component): the current default GA image, and the VS2026 preview images for both
+        # Windows Server 2025 (x64) and Windows 11 (Arm64).
+        # https://github.com/actions/runner-images#available-images
+        vm-image: [windows-latest, windows-2025-vs2026, windows-11-vs2026-arm]
     environment:
       name: publisher-jessehouwing
       url: ${{ steps.dispatch.outputs.run_url }}
@@ -379,7 +384,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_VERSION: ${{ needs.prepare-release.outputs.version }}
-          VM_IMAGE: windows-latest
+          VM_IMAGE: ${{ matrix.vm-image }}
           CONNECTION_TYPE: ${{ matrix.connection-type }}
         shell: pwsh
         run: |
@@ -462,13 +467,18 @@ jobs:
           }
 
   test-github-actions:
-    name: Test GitHub Actions v${{ needs.prepare-release.outputs.version }} (${{ matrix.auth-type }})
+    name: Test GitHub Actions v${{ needs.prepare-release.outputs.version }} (${{ matrix.auth-type }}, ${{ matrix.os }})
     needs: [prepare-release, validate-documentation-versions]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         auth-type: [pat, oidc]
+        # Cover every hosted image that ships VsixPublisher.exe (Visual Studio + the VSSDK
+        # component): the current default GA image, and the VS2026 preview images for both
+        # Windows Server 2025 (x64) and Windows 11 (Arm64).
+        # https://github.com/actions/runner-images#available-images
+        os: [windows-latest, windows-2025-vs2026, windows-11-vs2026-arm]
     environment:
       name: publisher-jessehouwing
       url: ${{ steps.dispatch.outputs.run_url }}
@@ -486,7 +496,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BRANCH: release/v${{ needs.prepare-release.outputs.version }}
           RELEASE_VERSION: ${{ needs.prepare-release.outputs.version }}
-          OS: windows-latest
+          OS: ${{ matrix.os }}
           AUTH_TYPE: ${{ matrix.auth-type }}
         shell: pwsh
         run: |
