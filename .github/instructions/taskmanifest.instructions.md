@@ -80,6 +80,6 @@ The task version in `task.json` (`Major`, `Minor`, `Patch`) must stay consistent
 
 - The extension version in `vss-extension.json`
 - The GitHub release tag (e.g., `v6.0.0`)
-- The action version reference in documentation (e.g., `jessehouwing/vs-marketplace@v6`)
+- The action version reference in documentation (e.g., `jessehouwing/vs-marketplace@v0.9.0`)
 
 When bumping the version, update all three places.

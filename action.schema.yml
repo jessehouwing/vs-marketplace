@@ -9,6 +9,12 @@ types:
 
 # Validate inputs
 inputs:
+  operation:
+    type: choice
+    options:
+      - publish
+      - package
+
   auth-type:
     type: choice
     options:
@@ -34,3 +40,20 @@ inputs:
       - ','
     items:
       type: string
+
+  vsix-manifest:
+    type: string
+
+  output-path:
+    type: string
+
+  files-manifest:
+    type: string
+
+  working-directory:
+    type: string
+
+# Validate outputs
+outputs:
+  vsix-file:
+    type: string
