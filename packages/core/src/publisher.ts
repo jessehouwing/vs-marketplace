@@ -28,7 +28,7 @@ export interface PublishOptions {
 function isLoginTelemetryCrash(stderr: string): boolean {
   const stderrLower = stderr.toLowerCase();
   return (
-stderrLower.includes('unhandled exception') &&
+    stderrLower.includes('unhandled exception') &&
     stderrLower.includes('microsoft.visualstudio.telemetry') &&
     stderrLower.includes('system.io.fileloadexception') &&
     stderrLower.includes('system.memory')
