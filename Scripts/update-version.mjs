@@ -8,6 +8,7 @@
  * - packages/azdo-task/task.json (Major/Minor/Patch)
  * - packages/azdo-package-task/task.json (Major/Minor/Patch)
  * - action.yml (GitHub Action reference)
+ * - README.md, docs/**.{md,yml,yaml}, examples/**.{md,yml,yaml} (GitHub Action reference)
  *
  * Usage: node Scripts/update-version.mjs <version>
  * Example: node Scripts/update-version.mjs 6.1.0
@@ -116,34 +117,39 @@ try {
   }
 }
 
-// 6. Update docs directory
-const docsDir = path.join(rootDir, 'docs');
-try {
-  const entries = await fs.readdir(docsDir, { recursive: true, withFileTypes: true });
-  for (const entry of entries) {
-    if (!entry.isFile()) continue;
-    if (!/\.(md|yml|yaml)$/.test(entry.name)) continue;
-    const filePath = path.join(entry.parentPath ?? entry.path, entry.name);
-    const relative = path.relative(rootDir, filePath);
-    let fileContent = await fs.readFile(filePath, 'utf-8');
-    const updated = fileContent.replace(
-      /(jessehouwing\/vs-marketplace@)[0-9A-Za-z._/-]+/g,
-      `$1v${version}`
-    );
-    if (updated !== fileContent) {
-      await fs.writeFile(filePath, updated);
-      console.log(`✓ ${relative} → @v${version}`);
-      updatedCount++;
+// 6. Update a directory of docs/example files recursively
+async function updateDocsDir(relativeDirPath) {
+  const dir = path.join(rootDir, relativeDirPath);
+  try {
+    const entries = await fs.readdir(dir, { recursive: true, withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isFile()) continue;
+      if (!/\.(md|yml|yaml)$/.test(entry.name)) continue;
+      const filePath = path.join(entry.parentPath ?? entry.path, entry.name);
+      const relative = path.relative(rootDir, filePath);
+      let fileContent = await fs.readFile(filePath, 'utf-8');
+      const updated = fileContent.replace(
+        /(jessehouwing\/vs-marketplace@)[0-9A-Za-z._/-]+/g,
+        `$1v${version}`
+      );
+      if (updated !== fileContent) {
+        await fs.writeFile(filePath, updated);
+        console.log(`✓ ${relative} → @v${version}`);
+        updatedCount++;
+      }
+    }
+  } catch (e) {
+    if (e.code === 'ENOENT') {
+      console.log(`⊘ ${relativeDirPath}/ (not found, skipped)`);
+      skippedCount++;
+    } else {
+      throw e;
     }
   }
-} catch (e) {
-  if (e.code === 'ENOENT') {
-    console.log('⊘ docs/ (not found, skipped)');
-    skippedCount++;
-  } else {
-    throw e;
-  }
 }
+
+await updateDocsDir('docs');
+await updateDocsDir('examples');
 
 console.log(
   `\n✅ Version update complete: ${version} (${updatedCount} files updated${skippedCount > 0 ? `, ${skippedCount} skipped` : ''})`

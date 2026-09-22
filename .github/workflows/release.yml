@@ -265,6 +265,9 @@ jobs:
         uses: jessehouwing/actions-example-checker@v0.0.11
         with:
           version: v${{ needs.prepare-release.outputs.version }}
+          docs-pattern: |
+            **/*.md
+            !.github/instructions/**
 
   preview-release:
     name: Preview release
