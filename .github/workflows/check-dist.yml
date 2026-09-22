@@ -33,6 +33,7 @@ jobs:
           cache: 'npm'
 
       - name: Pin npm version
+        shell: pwsh
         run: |
           $packageManager = node -p "require('./package.json').packageManager ?? ''"
           if ($packageManager -notmatch '^npm@(.+)$') {
