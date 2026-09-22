@@ -367,8 +367,9 @@ jobs:
         # component): the current default GA image, and the VS2026 preview images for both
         # Windows Server 2025 (x64) and Windows 11 (Arm64).
         # https://github.com/actions/runner-images#available-images
-        # windows-11-vs2026-arm is temporarily disabled (commented out below).
-        vm-image: [windows-latest, windows-2025-vs2026] # , windows-11-vs2026-arm
+        # windows-11-vs2026-arm is not yet available on Azure pipelines
+        # windows-latest is temporarily disabled due to broken vsixpublisher
+        vm-image: [windows-2025-vs2026] # ,windows-latest, windows-11-vs2026-arm
     environment:
       name: publisher-jessehouwing
       url: ${{ steps.dispatch.outputs.run_url }}
