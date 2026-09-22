@@ -33,10 +33,12 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v7.0.0
         with:
-          python-version: '3.x'
+          python-version-file: '.python-version'
 
+      # Single source of truth for the zizmor version (Dependabot-managed).
+      # Plain (non --user) install so the `zizmor` binary lands on PATH.
       - name: Install zizmor
-        run: python3 -m pip install zizmor
+        run: python3 -m pip install -r requirements-dev.txt
 
       - name: Run zizmor
         run: zizmor --format=sarif . > results.sarif
