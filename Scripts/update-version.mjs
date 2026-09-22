@@ -151,6 +151,34 @@ async function updateDocsDir(relativeDirPath) {
 await updateDocsDir('docs');
 await updateDocsDir('examples');
 
+// 7. Pin the Azure Pipelines test fixture to the exact task version being released,
+// so `vs-marketplace@6` becomes `vs-marketplace@0.9.0` and the test run always resolves
+// to the version this release branch is validating (not whatever @6 happens to resolve
+// to in the org at test time). Version is kept consistent with every other package.
+const testPipelinePath = path.join(rootDir, '.github/pipelines/test-azure-pipelines.yml');
+try {
+  let content = await fs.readFile(testPipelinePath, 'utf-8');
+  const updated = content.replace(
+    /task: vs-marketplace@[0-9A-Za-z._-]+/g,
+    `task: vs-marketplace@${version}`
+  );
+  if (updated !== content) {
+    await fs.writeFile(testPipelinePath, updated);
+    console.log(`✓ .github/pipelines/test-azure-pipelines.yml → @${version}`);
+    updatedCount++;
+  } else {
+    console.log('⊘ .github/pipelines/test-azure-pipelines.yml (no matches, skipped)');
+    skippedCount++;
+  }
+} catch (e) {
+  if (e.code === 'ENOENT') {
+    console.log('⊘ .github/pipelines/test-azure-pipelines.yml (not found, skipped)');
+    skippedCount++;
+  } else {
+    throw e;
+  }
+}
+
 console.log(
   `\n✅ Version update complete: ${version} (${updatedCount} files updated${skippedCount > 0 ? `, ${skippedCount} skipped` : ''})`
 );
