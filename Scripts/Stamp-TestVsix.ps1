@@ -122,8 +122,7 @@ function Get-NextMarketplaceVersion {
         $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method Get
     }
     catch {
-        Write-Warning "Could not query Marketplace for current version of '$PublisherId.$ExtensionId': $($_.Exception.Message). Falling back to 1.0.0.0."
-        return '1.0.0.0'
+        throw "Could not query Marketplace for current version of '$PublisherId.$ExtensionId': $($_.Exception.Message)"
     }
 
     $currentVersion = $response.versions | Select-Object -First 1 -ExpandProperty version -ErrorAction SilentlyContinue
@@ -161,6 +160,10 @@ if ($outputDir -and -not (Test-Path -LiteralPath $outputDir)) {
 
 Copy-Item -LiteralPath $SourcePath -Destination $OutputPath -Force
 
+# On Windows PowerShell 5.1 (used by the Azure Pipelines PowerShell@2 task), [System.IO.Compression.ZipArchive]
+# lives in System.IO.Compression.dll, not System.IO.Compression.FileSystem.dll (which only adds the static
+# ZipFile helper) - both assemblies must be loaded explicitly.
+Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 $zip = [System.IO.Compression.ZipArchive]::new([System.IO.File]::Open($OutputPath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite), [System.IO.Compression.ZipArchiveMode]::Update)
