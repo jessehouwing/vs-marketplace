@@ -549,8 +549,8 @@ async function installRuntimeDependencies(target, frozen = false) {
   const useCi = frozen && (await pathExists(lockfilePath));
 
   if (frozen && !useCi) {
-    console.log(
-      `No committed lockfile for ${target.name}; falling back to 'npm install' in frozen mode.`
+    throw new Error(
+      `No committed lockfile for ${target.name} at ${lockfilePath}; frozen bundling requires a committed 'package-lock.json' for reproducible installs.`
     );
   }
 

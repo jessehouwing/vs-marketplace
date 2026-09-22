@@ -40,7 +40,7 @@ jobs:
           persist-credentials: true
 
       - name: Install actions-lock CLI
-        run: gh extension install github/gh-actions-lock
+        run: gh extension install github/gh-actions-lock --pin v0.1.6
 
       - name: Regenerate actions-lock lockfile
         env:
