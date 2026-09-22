@@ -3,9 +3,9 @@ exclude: (^|/)dist/.*
 repos:
   - repo: local
     hooks:
-      - id: actionlint
-        name: actionlint
-        entry: actionlint
+      - id: zizmor
+        name: zizmor
+        entry: zizmor --no-progress --min-severity=medium
         language: system
         files: '^\.github/workflows/.*\.ya?ml$'
       - id: prettier

@@ -28,7 +28,7 @@ runs:
   using: 'composite'
   steps:
     - id: run
-      uses: ../
+      uses: jessehouwing/vs-marketplace@main
       with:
         operation: package
         vsix-manifest: ${{ inputs.vsix-manifest }}

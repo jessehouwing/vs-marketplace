@@ -17,8 +17,9 @@ export async function getAzureRmAuth(
 
     // Override the Active Directory resource ID for VS Marketplace
     // This is the Visual Studio Marketplace resource ID
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const creds = azureEndpoint.applicationTokenCredentials as any;
+    const creds = azureEndpoint.applicationTokenCredentials as {
+      activeDirectoryResourceId?: string;
+    };
     creds.activeDirectoryResourceId = '499b84ac-1321-427f-aa17-267ca6975798';
 
     // Get the token from the application token credentials

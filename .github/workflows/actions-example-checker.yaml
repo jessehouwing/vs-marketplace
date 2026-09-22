@@ -1,3 +1,5 @@
+# This workflow is managed by gh actions-lock.
+
 name: Validate Documentation
 
 on:
@@ -12,8 +14,14 @@ jobs:
   validate-docs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@v2.21.1
         with:
+          egress-policy: audit
+
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
           sparse-checkout: |
             **/action.yaml
             **/action.yml
@@ -21,4 +29,4 @@ jobs:
             **/action.schema.yml
             **/*.md
           sparse-checkout-cone-mode: false
-      - uses: jessehouwing/actions-example-checker@eb2c287585cd48847abc0d3012e861918793561f # v0.0.11
+      - uses: jessehouwing/actions-example-checker@v0.0.11

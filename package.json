@@ -36,6 +36,7 @@
     "bundle:azdo": "node Scripts/bundle.mjs azdo",
     "bundle:actions": "node Scripts/bundle.mjs actions",
     "bundle": "npm run bundle:azdo && npm run bundle:actions",
+    "bundle:frozen": "node Scripts/bundle.mjs all --frozen",
     "update-version": "node Scripts/update-version.mjs",
     "clean": "git clean -fdX"
   },
@@ -49,21 +50,36 @@
     "@rollup/plugin-typescript": "^12.3.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.13.1",
-    "eslint": "^10.4.1",
-    "globals": "^17.6.0",
-    "jest": "^30.4.2",
-    "js-yaml": "^4.2.0",
-    "prettier": "^3.8.4",
-    "rollup": "^4.61.1",
-    "tfx-cli": "^0.23.1",
-    "ts-jest": "^29.4.11",
+    "eslint": "^10.9.1",
+    "globals": "^17.11.0",
+    "jest": "^30.5.0",
+    "js-yaml": "^4.3.2",
+    "prettier": "^3.9.6",
+    "rollup": "^4.63.1",
+    "tfx-cli": "^0.24.0",
+    "ts-jest": "^29.4.12",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.61.0"
+    "typescript-eslint": "^8.68.0"
   },
   "optionalDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "^4.61.1",
-    "@rollup/rollup-win32-x64-gnu": "^4.61.1",
-    "@rollup/rollup-win32-x64-msvc": "^4.61.1"
+    "@rollup/rollup-linux-x64-gnu": "^4.62.0",
+    "@rollup/rollup-win32-x64-gnu": "^4.61.0",
+    "@rollup/rollup-win32-x64-msvc": "^4.62.0"
+  },
+  "overrides": {
+    "@babel/core": "^7.29.7",
+    "@azure/msal-node": {
+      "uuid": "^11.1.1"
+    },
+    "@humanfs/node": "^0.16.8",
+    "azure-pipelines-tool-lib": {
+      "uuid": "^11.1.1"
+    },
+    "baseline-browser-mapping": "^2.11.21",
+    "browserslist": "^4.28.9",
+    "qs": "^6.16.0",
+    "undici": "^6.28.1",
+    "uuid": "^11.1.1"
   }
 }

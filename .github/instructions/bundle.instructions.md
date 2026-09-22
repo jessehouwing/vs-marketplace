@@ -88,3 +88,9 @@ After modifying bundle script for the Azure target, validate:
 - The bundle script must be target-aware. Any new rewrite or copy rule should be gated by target metadata so it applies to the correct output only.
 - Both targets share the vswhere.exe staging step; this should remain shared.
 - Keep edits minimal and focused on bundling behavior — do not change publishing or authentication logic while fixing bundle packaging.
+
+## Frozen release bundling
+
+- `npm run bundle:frozen` runs `node Scripts/bundle.mjs all --frozen`.
+- In frozen mode, dist runtime dependencies are restored with `npm ci` from committed dist lockfiles.
+- Frozen mode must not run `npm audit fix` or `npm dedupe`; those mutations belong in regular development bundles and must already be committed before a release.

@@ -1,0 +1,205 @@
+# This workflow is managed by gh actions-lock.
+
+name: Test Azure Pipelines
+run-name: Test Azure Pipelines v${{ inputs.version || github.ref_name || github.ref }} (${{ inputs.connection-type || 'PAT' }}, ${{ inputs.vm-image || 'windows-latest' }})
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version being tested'
+        required: true
+        type: string
+      vm-image:
+        description: 'Azure Pipelines hosted image to validate'
+        required: false
+        type: string
+        default: windows-latest
+      connection-type:
+        description: 'Azure Pipelines connection type to validate'
+        required: false
+        type: string
+        default: PAT
+
+permissions: {}
+
+jobs:
+  test:
+    name: Test (${{ inputs.connection-type }}, ${{ inputs.vm-image }})
+    runs-on: ubuntu-latest
+    environment:
+      name: publisher-jessehouwing
+      url: ${{ steps.run-azdo-pipeline.outputs.pipeline_run_url }}
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@v2.21.1
+        with:
+          egress-policy: audit
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v3.1.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+
+      - name: Get Azure DevOps access token
+        id: get-azdo-token
+        shell: pwsh
+        run: |
+          $token = az account get-access-token `
+            --resource 499b84ac-1321-427f-aa17-267ca6975798 `
+            --query accessToken --output tsv
+          Write-Host "::add-mask::$token"
+          echo "azdo_token=$token" >> $env:GITHUB_OUTPUT
+
+      - name: Run Azure DevOps test pipeline
+        id: run-azdo-pipeline
+        env:
+          AZURE_DEVOPS_EXT_PAT: ${{ steps.get-azdo-token.outputs.azdo_token }}
+          AZDO_PIPELINE_NAME: ${{ vars.AZDO_TEST_PIPELINE_NAME }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          AZDO_ORGANIZATION: https://dev.azure.com/jessehouwing
+          AZDO_PROJECT: azure-devops-extensions
+          TEST_VM_IMAGE: ${{ inputs.vm-image }}
+          TEST_CONNECTION_TYPE: ${{ inputs.connection-type }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          function Invoke-Az {
+            param(
+              [Parameter(Mandatory = $true)]
+              [string[]]$Arguments
+            )
+
+            $output = & az @Arguments
+            if ($LASTEXITCODE -ne 0) {
+              throw "Azure CLI command failed: az $($Arguments -join ' ')"
+            }
+
+            return $output
+          }
+
+          $organization = $env:AZDO_ORGANIZATION
+          $project = $env:AZDO_PROJECT
+          $pipelineName = $env:AZDO_PIPELINE_NAME
+          $branch = "release/v$($env:RELEASE_VERSION)"
+          $timeoutSeconds = 3600
+          $intervalSeconds = 30
+
+          if (-not $organization) { throw 'AZDO_ORGANIZATION is empty.' }
+          if (-not $project) { throw 'AZDO_PROJECT is empty.' }
+          if (-not $pipelineName) {
+            throw 'AZDO_PIPELINE_NAME is empty. Set repository variable AZDO_TEST_PIPELINE_NAME.'
+          }
+          if (-not $env:RELEASE_VERSION) {
+            throw 'RELEASE_VERSION is empty. Prepare release output is missing.'
+          }
+
+          switch ($env:TEST_CONNECTION_TYPE) {
+            'PAT' { }
+            'AzureRM' { }
+            default { throw "Unsupported TEST_CONNECTION_TYPE: $($env:TEST_CONNECTION_TYPE)" }
+          }
+
+          Invoke-Az -Arguments @('config', 'set', 'extension.use_dynamic_install=yes_without_prompt') | Out-Null
+          Invoke-Az -Arguments @('extension', 'add', '--name', 'azure-devops', '--upgrade', '--only-show-errors') | Out-Null
+
+          if (-not $env:AZURE_DEVOPS_EXT_PAT) {
+            throw 'AZURE_DEVOPS_EXT_PAT is not set. Token step must run before this step.'
+          }
+
+          Invoke-Az -Arguments @('config', 'set', 'core.enable_secure_credential_store=false') | Out-Null
+          Invoke-Az -Arguments @('devops', 'configure', '--defaults', "organization=$organization", "project=$project") | Out-Null
+
+          $runId = (Invoke-Az -Arguments @(
+            'pipelines', 'run',
+            '--name', $pipelineName,
+            '--branch', $branch,
+            '--org', $organization,
+            '--project', $project,
+            '--detect', 'false',
+            '--parameters',
+            "vmImage=$($env:TEST_VM_IMAGE)",
+            "connectionType=$($env:TEST_CONNECTION_TYPE)",
+            '--query', 'id',
+            '--output', 'tsv'
+          )).Trim()
+
+          if (-not $runId) {
+            throw 'Failed to trigger Azure DevOps pipeline run.'
+          }
+
+          "pipeline_run_id=$runId" >> $env:GITHUB_OUTPUT
+          $runUrl = "$organization/$project/_build/results?buildId=$runId&view=results"
+          "pipeline_run_url=$runUrl" >> $env:GITHUB_OUTPUT
+
+          Write-Host "Triggered pipeline run: $runId"
+          Write-Host "Pipeline run URL: $runUrl"
+          "- Azure Pipelines run: [$runId]($runUrl)" >> $env:GITHUB_STEP_SUMMARY
+
+          $elapsed = 0
+          while ($elapsed -lt $timeoutSeconds) {
+            $runJson = Invoke-Az -Arguments @(
+              'pipelines', 'runs', 'show',
+              '--id', $runId,
+              '--org', $organization,
+              '--project', $project,
+              '--detect', 'false',
+              '--output', 'json'
+            )
+            $run = $runJson | ConvertFrom-Json
+
+            $status = if ($null -ne $run.status) { [string]$run.status } else { '' }
+            $result = if ($null -ne $run.result) { [string]$run.result } else { '' }
+
+            Write-Host "Pipeline status: $status, result: $result (${elapsed}s elapsed)"
+
+            if ($status -eq 'completed') {
+              if ($result -eq 'succeeded') {
+                Write-Host 'Pipeline succeeded'
+                exit 0
+              }
+              throw "Pipeline failed with result: $result"
+            }
+
+            Start-Sleep -Seconds $intervalSeconds
+            $elapsed += $intervalSeconds
+          }
+
+          throw "Pipeline timed out after ${timeoutSeconds}s"
+
+      - name: Cancel Azure DevOps pipeline run if parent workflow was cancelled
+        if: ${{ cancelled() && steps.run-azdo-pipeline.outputs.pipeline_run_id != '' }}
+        continue-on-error: true
+        env:
+          AZDO_PIPELINE_RUN_ID: ${{ steps.run-azdo-pipeline.outputs.pipeline_run_id }}
+          AZDO_ORGANIZATION: https://dev.azure.com/jessehouwing
+          AZDO_PROJECT: azure-devops-extensions
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not $env:AZDO_PIPELINE_RUN_ID) {
+            exit 0
+          }
+
+          try {
+            az pipelines runs cancel `
+              --id $env:AZDO_PIPELINE_RUN_ID `
+              --org $env:AZDO_ORGANIZATION `
+              --project $env:AZDO_PROJECT `
+              --detect false `
+              --output none
+
+            Write-Host "Cancelled Azure DevOps pipeline run $($env:AZDO_PIPELINE_RUN_ID) because the parent workflow was cancelled."
+          }
+          catch {
+            Write-Warning "Unable to cancel Azure DevOps pipeline run $($env:AZDO_PIPELINE_RUN_ID): $($_.Exception.Message)"
+            exit 0
+          }

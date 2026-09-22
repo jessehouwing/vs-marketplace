@@ -1,27 +1,29 @@
-name: Test GitHub Actions
+# This workflow is managed by gh actions-lock.
 
-# Validates the vs-marketplace GitHub Action against a minimal Visual Studio
-# extension sample. Tests both the package and publish operations with PAT and
-# OIDC auth types on a Windows agent (required for VSIXUtil.exe and
-# VsixPublisher.exe).
-#
-# Required secrets:
-#   AZURE_CLIENT_ID   - Azure AD app client ID for OIDC authentication
-#   AZURE_TENANT_ID   - Azure AD tenant ID for OIDC authentication
+name: Test GitHub Actions
+run-name: Test GitHub Actions v${{ inputs.version || inputs.ref || github.ref_name || github.ref }} (${{ inputs.os || 'windows-latest' }}, ${{ inputs.auth-type || 'pat' }})
 
 on:
-  workflow_call:
-    inputs:
-      ref:
-        description: 'Git ref to test'
-        required: true
-        type: string
   workflow_dispatch:
     inputs:
       ref:
         description: 'Git ref to test'
         required: false
         type: string
+      version:
+        description: 'Release version being tested'
+        required: false
+        type: string
+      os:
+        description: 'Runner OS for GitHub Action validation'
+        required: false
+        type: string
+        default: windows-latest
+      auth-type:
+        description: 'Authentication mode to validate'
+        required: false
+        type: string
+        default: pat
 
 permissions: {}
 
@@ -30,13 +32,8 @@ env:
 
 jobs:
   test:
-    name: Test (${{ matrix.auth-type }})
-    runs-on: windows-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        auth-type: [pat, oidc]
-
+    name: Test (${{ inputs.auth-type }}, ${{ inputs.os }})
+    runs-on: ${{ inputs.os }}
     environment: publisher-jessehouwing
 
     permissions:
@@ -44,23 +41,41 @@ jobs:
       id-token: write
 
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 #v6.0.3
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@v2.21.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.ref || github.ref }}
+          persist-credentials: false
 
-      # Azure login is required for both auth types:
-      # - OIDC: DefaultAzureCredential picks up the federated token directly
-      # - PAT:  we exchange the OIDC token for an Azure DevOps bearer token
+      - name: Verify GitHub Action dist/ build provenance attestation
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git archive --format=tar --output "$RUNNER_TEMP/github-action-dist.tar" HEAD packages/github-action/dist
+          gh attestation verify "$RUNNER_TEMP/github-action-dist.tar" --repo "$GITHUB_REPOSITORY"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+
       - name: Azure login
-        uses: azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43 #v3.0.0
+        uses: azure/login@v3.1.0
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           allow-no-subscriptions: true
 
-      - name: Get Azure DevOps bearer token
-        id: get-token
-        if: matrix.auth-type == 'pat'
+      - id: azure-devops-token
+        name: Get Azure DevOps bearer token
+        if: ${{ inputs.auth-type == 'pat' }}
         shell: pwsh
         run: |
           $token = az account get-access-token `
@@ -69,22 +84,20 @@ jobs:
           Write-Host "::add-mask::$token"
           "token=$token" >> $env:GITHUB_OUTPUT
 
-      # --- Package: build the .vsix from the minimal VS extension manifest ---
       - name: Package VS extension
         id: package
-        uses: ./
+        uses: $/
         with:
           operation: package
           vsix-manifest: tests/sample-extension/source.extension.vsixmanifest
           output-path: ${{ runner.temp }}/vsix
 
-      # --- Publish: push the packaged .vsix to the Visual Studio Marketplace ---
       - name: Publish VS extension
-        uses: ./
+        uses: $/
         with:
           operation: publish
-          auth-type: ${{ matrix.auth-type }}
-          token: ${{ matrix.auth-type == 'pat' && steps.get-token.outputs.token || '' }}
+          auth-type: ${{ inputs.auth-type }}
+          token: ${{ inputs.auth-type == 'pat' && steps.azure-devops-token.outputs.token || '' }}
           vsix-file: ${{ steps.package.outputs.vsix-file }}
           manifest-file: tests/sample-extension/publish-manifest.json
           publisher-id: ${{ env.PUBLISHER_ID }}
