@@ -84,20 +84,11 @@ jobs:
           Write-Host "::add-mask::$token"
           "token=$token" >> $env:GITHUB_OUTPUT
 
-      - name: Package VS extension
-        id: package
-        uses: $/
-        with:
-          operation: package
-          vsix-manifest: tests/sample-extension/source.extension.vsixmanifest
-          output-path: ${{ runner.temp }}/vsix
-
       - name: Publish VS extension
         uses: $/
         with:
-          operation: publish
           auth-type: ${{ inputs.auth-type }}
           token: ${{ inputs.auth-type == 'pat' && steps.azure-devops-token.outputs.token || '' }}
-          vsix-file: ${{ steps.package.outputs.vsix-file }}
+          vsix-file: tests/sample-extension/vs-marketplace-test-1.0.0.vsix
           manifest-file: tests/sample-extension/publish-manifest.json
           publisher-id: ${{ env.PUBLISHER_ID }}

@@ -99,14 +99,6 @@ export class AzdoAdapter implements IPlatformAdapter {
     return tl.exist(path);
   }
 
-  findMatch(root: string, patterns: string[]): Promise<string[]> {
-    return Promise.resolve(tl.findMatch(root, patterns));
-  }
-
-  ensureDirectory(dirPath: string): void {
-    tl.mkdirP(dirPath);
-  }
-
   setResult(result: CoreTaskResult, message: string): void {
     const azdoResult =
       result === CoreTaskResult.Succeeded ? tl.TaskResult.Succeeded : tl.TaskResult.Failed;

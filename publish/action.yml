@@ -37,7 +37,6 @@ runs:
   steps:
     - uses: jessehouwing/vs-marketplace@main
       with:
-        operation: publish
         auth-type: ${{ inputs.auth-type }}
         token: ${{ inputs.token }}
         vsix-file: ${{ inputs.vsix-file }}
