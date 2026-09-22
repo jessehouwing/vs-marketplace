@@ -10,7 +10,7 @@ description: Guidance for authoring and editing the GitHub Action manifest (acti
 - Do not put deprecation notices in an input `description`.
 - For deprecated inputs, use the dedicated `deprecationMessage:` field instead.
 - Treat `action.yml` in the repository root as the source of truth for input/output metadata.
-- The action runs on `node20` — keep the `runs.using` field as `node20`.
+- The action runs on `node24` — keep the `runs.using` field as `node24`.
 - The entry point is always `dist/bundle.js` — do not change this to a source file.
 
 ## Input Definitions

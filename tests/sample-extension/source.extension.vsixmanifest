@@ -8,9 +8,13 @@
     <GalleryFlags>Private</GalleryFlags>
   </Metadata>
   <Installation>
-    <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[17.0, 18.0)" />
+    <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[17.0, 18.0)">
+      <ProductArchitecture>x86</ProductArchitecture>
+    </InstallationTarget>
   </Installation>
   <Dependencies />
-  <Prerequisites />
+  <Prerequisites>
+    <Prerequisite Id="Microsoft.VisualStudio.Component.VSSDK" Version="[17.0,)" DisplayName="Visual Studio SDK" />
+  </Prerequisites>
   <Assets />
 </PackageManifest>
