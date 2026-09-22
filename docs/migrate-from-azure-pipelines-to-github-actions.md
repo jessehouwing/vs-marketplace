@@ -14,14 +14,14 @@ This guide helps you migrate from the `vs-marketplace@6` Azure Pipelines task to
 ## Input mapping
 
 | `vs-marketplace@6` input                                              | `jessehouwing/vs-marketplace@v0.9.0` input | Notes                                                          |
-| --------------------------------------------------------------------- | -------------------------------------- | -------------------------------------------------------------- |
-| `connectionType: PAT` + `connectionNamePAT`                           | `auth-type: pat` + `token`             | Extract PAT from service connection and store as GitHub secret |
-| `connectionType: WorkloadIdentity` + `connectionNameWorkloadIdentity` | `auth-type: oidc`                      | Use `azure/login@v2` step before this action                   |
-| `connectionType: AzureRM` + `connectionNameAzureRM`                   | `auth-type: oidc`                      | Use `azure/login@v2` step before this action                   |
-| `vsixFile`                                                            | `vsix-file`                            | Renamed with kebab-case                                        |
-| `manifestFile`                                                        | `manifest-file`                        | Renamed with kebab-case                                        |
-| `publisherId`                                                         | `publisher-id`                         | Renamed with kebab-case                                        |
-| `ignoreWarnings`                                                      | `ignore-warnings`                      | Renamed with kebab-case                                        |
+| --------------------------------------------------------------------- | ------------------------------------------ | -------------------------------------------------------------- |
+| `connectionType: PAT` + `connectionNamePAT`                           | `auth-type: pat` + `token`                 | Extract PAT from service connection and store as GitHub secret |
+| `connectionType: WorkloadIdentity` + `connectionNameWorkloadIdentity` | `auth-type: oidc`                          | Use `azure/login@v2` step before this action                   |
+| `connectionType: AzureRM` + `connectionNameAzureRM`                   | `auth-type: oidc`                          | Use `azure/login@v2` step before this action                   |
+| `vsixFile`                                                            | `vsix-file`                                | Renamed with kebab-case                                        |
+| `manifestFile`                                                        | `manifest-file`                            | Renamed with kebab-case                                        |
+| `publisherId`                                                         | `publisher-id`                             | Renamed with kebab-case                                        |
+| `ignoreWarnings`                                                      | `ignore-warnings`                          | Renamed with kebab-case                                        |
 
 ## Authentication migration
 
