@@ -263,4 +263,3 @@ if ($env:AGENT_TEMPDIRECTORY -or $env:AZURE_HTTP_USER_AGENT) {
     Write-Host "##vso[task.setvariable variable=stampedVsixVersion;isOutput=true]$Version"
     Write-Host "##vso[task.setvariable variable=stampedExtensionId;isOutput=true]$ExtensionId"
 }
-

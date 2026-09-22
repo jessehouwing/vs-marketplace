@@ -50,4 +50,3 @@ packages/azdo-task/tools/
 !packages/github-action/dist/
 !packages/core/tools/
 !packages/core/tools/vswhere.exe
-
