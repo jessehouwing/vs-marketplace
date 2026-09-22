@@ -140,6 +140,16 @@ export class MockPlatformAdapter implements IPlatformAdapter {
     return this.findMatchMockResponse;
   }
 
+  private ensuredDirectories: string[] = [];
+
+  ensureDirectory(dirPath: string): void {
+    this.ensuredDirectories.push(dirPath);
+  }
+
+  getEnsuredDirectories(): string[] {
+    return this.ensuredDirectories;
+  }
+
   setResult(result: TaskResult, message: string): void {
     this.taskResult = { result, message };
   }

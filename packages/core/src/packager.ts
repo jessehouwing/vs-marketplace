@@ -1,6 +1,7 @@
 import { IPlatformAdapter } from './platform-adapter.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { readFileSync } from 'fs';
 
 export interface PackageOptions {
   vsixManifest: string;
@@ -97,6 +98,30 @@ export class VsixPackager {
   }
 
   /**
+   * Derive a default .vsix file name from the manifest's <Identity> element
+   * (e.g. Id="foo" Version="1.0.0" -> "foo-1.0.0.vsix"), used when the caller
+   * supplies an output directory instead of a specific file path.
+   */
+  private getDefaultVsixFileName(vsixManifestPath: string): string {
+    try {
+      const xml = readFileSync(vsixManifestPath, 'utf8');
+      const identityMatch = xml.match(/<Identity\b([^>]*)\/?>/i);
+      if (identityMatch) {
+        const attrs = identityMatch[1];
+        const id = attrs.match(/\bId="([^"]+)"/i)?.[1];
+        const version = attrs.match(/\bVersion="([^"]+)"/i)?.[1];
+        if (id) {
+          return version ? `${id}-${version}.vsix` : `${id}.vsix`;
+        }
+      }
+    } catch {
+      // Fall through to the generic default name below.
+    }
+
+    return 'extension.vsix';
+  }
+
+  /**
    * Package a Visual Studio extension into a .vsix file
    */
   async package(vsixManifest: string, outputPath: string, filesManifest?: string): Promise<string> {
@@ -104,11 +129,23 @@ export class VsixPackager {
 
     const vsixUtil = await this.getVsixUtilExe();
 
-    const args = ['package', '-sourceManifest', vsixManifest];
+    // VSIXUtil.exe interprets a relative -outputPath against its own cwd
+    // (workingDirectory), so resolve it up front for a deterministic result.
+    const resolvedOutputBase =
+      this.workingDirectory && !path.isAbsolute(outputPath)
+        ? path.resolve(this.workingDirectory, outputPath)
+        : outputPath;
 
-    if (outputPath) {
-      args.push('-outputPath', outputPath);
-    }
+    // VSIXUtil.exe requires -outputPath to be a literal .vsix file path: it neither
+    // creates missing directories nor auto-generates a file name when pointed at a
+    // directory (it errors with VSSDK1026 "Access to the path ... is denied").
+    const resolvedOutputPath = /\.vsix$/i.test(resolvedOutputBase)
+      ? resolvedOutputBase
+      : path.join(resolvedOutputBase, this.getDefaultVsixFileName(vsixManifest));
+
+    this.adapter.ensureDirectory(path.dirname(resolvedOutputPath));
+
+    const args = ['package', '-sourceManifest', vsixManifest, '-outputPath', resolvedOutputPath];
 
     if (filesManifest) {
       args.push('-files', filesManifest);
@@ -131,22 +168,8 @@ export class VsixPackager {
 
     this.adapter.info('Extension packaged successfully.');
 
-    // If workingDirectory is set and outputPath is relative, resolve it against workingDirectory
-    // because VSIXUtil interprets relative paths from its cwd (workingDirectory).
-    const resolvedOutputPath =
-      this.workingDirectory && !path.isAbsolute(outputPath)
-        ? path.resolve(this.workingDirectory, outputPath)
-        : outputPath;
-
-    if (/\.vsix$/i.test(resolvedOutputPath)) {
-      if (this.adapter.fileExists(resolvedOutputPath)) {
-        return resolvedOutputPath;
-      }
-    } else {
-      const matches = await this.adapter.findMatch(resolvedOutputPath, ['**/*.vsix']);
-      if (matches.length > 0) {
-        return matches[0];
-      }
+    if (this.adapter.fileExists(resolvedOutputPath)) {
+      return resolvedOutputPath;
     }
 
     throw new Error(

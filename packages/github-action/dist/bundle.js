@@ -9,7 +9,7 @@ import os__default from 'os';
 import * as crypto$1 from 'crypto';
 import crypto__default, { createHash } from 'crypto';
 import * as fs from 'fs';
-import { promises, accessSync, constants as constants$6, statSync, readFileSync, existsSync } from 'fs';
+import { promises, accessSync, constants as constants$6, statSync, readFileSync, existsSync, mkdirSync } from 'fs';
 import * as path$1 from 'path';
 import path__default from 'path';
 import http from 'http';
@@ -60181,15 +60181,47 @@ class VsixPackager {
         return 'vswhere.exe';
     }
     /**
+     * Derive a default .vsix file name from the manifest's <Identity> element
+     * (e.g. Id="foo" Version="1.0.0" -> "foo-1.0.0.vsix"), used when the caller
+     * supplies an output directory instead of a specific file path.
+     */
+    getDefaultVsixFileName(vsixManifestPath) {
+        try {
+            const xml = readFileSync(vsixManifestPath, 'utf8');
+            const identityMatch = xml.match(/<Identity\b([^>]*)\/?>/i);
+            if (identityMatch) {
+                const attrs = identityMatch[1];
+                const id = attrs.match(/\bId="([^"]+)"/i)?.[1];
+                const version = attrs.match(/\bVersion="([^"]+)"/i)?.[1];
+                if (id) {
+                    return version ? `${id}-${version}.vsix` : `${id}.vsix`;
+                }
+            }
+        }
+        catch {
+            // Fall through to the generic default name below.
+        }
+        return 'extension.vsix';
+    }
+    /**
      * Package a Visual Studio extension into a .vsix file
      */
     async package(vsixManifest, outputPath, filesManifest) {
         this.adapter.info(`Packaging Visual Studio extension from manifest '${vsixManifest}'`);
         const vsixUtil = await this.getVsixUtilExe();
-        const args = ['package', '-sourceManifest', vsixManifest];
-        if (outputPath) {
-            args.push('-outputPath', outputPath);
-        }
+        // VSIXUtil.exe interprets a relative -outputPath against its own cwd
+        // (workingDirectory), so resolve it up front for a deterministic result.
+        const resolvedOutputBase = this.workingDirectory && !path__default.isAbsolute(outputPath)
+            ? path__default.resolve(this.workingDirectory, outputPath)
+            : outputPath;
+        // VSIXUtil.exe requires -outputPath to be a literal .vsix file path: it neither
+        // creates missing directories nor auto-generates a file name when pointed at a
+        // directory (it errors with VSSDK1026 "Access to the path ... is denied").
+        const resolvedOutputPath = /\.vsix$/i.test(resolvedOutputBase)
+            ? resolvedOutputBase
+            : path__default.join(resolvedOutputBase, this.getDefaultVsixFileName(vsixManifest));
+        this.adapter.ensureDirectory(path__default.dirname(resolvedOutputPath));
+        const args = ['package', '-sourceManifest', vsixManifest, '-outputPath', resolvedOutputPath];
         if (filesManifest) {
             args.push('-files', filesManifest);
         }
@@ -60206,21 +60238,8 @@ class VsixPackager {
             throw new Error(`VSIXUtil.exe package failed with exit code ${result.code}.`);
         }
         this.adapter.info('Extension packaged successfully.');
-        // If workingDirectory is set and outputPath is relative, resolve it against workingDirectory
-        // because VSIXUtil interprets relative paths from its cwd (workingDirectory).
-        const resolvedOutputPath = this.workingDirectory && !path__default.isAbsolute(outputPath)
-            ? path__default.resolve(this.workingDirectory, outputPath)
-            : outputPath;
-        if (/\.vsix$/i.test(resolvedOutputPath)) {
-            if (this.adapter.fileExists(resolvedOutputPath)) {
-                return resolvedOutputPath;
-            }
-        }
-        else {
-            const matches = await this.adapter.findMatch(resolvedOutputPath, ['**/*.vsix']);
-            if (matches.length > 0) {
-                return matches[0];
-            }
+        if (this.adapter.fileExists(resolvedOutputPath)) {
+            return resolvedOutputPath;
         }
         throw new Error('Could not determine the output .vsix file path. Ensure the -outputPath argument points to a valid location.');
     }
@@ -64364,6 +64383,9 @@ class GitHubAdapter {
         else {
             info(message);
         }
+    }
+    ensureDirectory(dirPath) {
+        mkdirSync(dirPath, { recursive: true });
     }
 }
 
