@@ -130,8 +130,11 @@ stages:
                 Write-Host "##vso[task.setsecret]$token"
                 Write-Host "##vso[task.setendpoint id=$marketplaceServiceConnectionId;field=authParameter;key=password]$token"
 
-          # Publish the same fixture twice fails on the marketplace ("version already exists"),
-          # so look up the currently published version and stamp the next one onto a copy.
+          # Publish the same fixture twice fails on the marketplace ("version already exists").
+          # PAT and AzureRM matrix legs run concurrently, so each must publish to its own private
+          # extension (rather than racing for the "next" version of a shared one); look up the
+          # currently published version of that scenario's extension and stamp the next one onto
+          # a copy of the fixture (and manifest).
           - task: PowerShell@2
             displayName: Stamp unique test .vsix version
             inputs:
@@ -141,7 +144,10 @@ stages:
                 -SourcePath tests/sample-extension/vs-marketplace-test-1.0.0.vsix
                 -OutputPath $(Agent.TempDirectory)/vs-marketplace-test-stamped.vsix
                 -PublisherId ${{ parameters.publisherId }}
+                -ExtensionId vs-marketplace-test-azdo-${{ lower(parameters.connectionType) }}
                 -AccessToken $(marketplaceAccessToken)
+                -ManifestPath tests/sample-extension/publish-manifest.json
+                -ManifestOutputPath $(Agent.TempDirectory)/publish-manifest-stamped.json
 
           # --- Publish: push the pre-built .vsix fixture to the Visual Studio Marketplace ---
           - task: vs-marketplace@6
@@ -151,5 +157,5 @@ stages:
               connectionNamePAT: ${{ parameters.marketplaceServiceConnectionName }}
               connectionNameAzureRM: ${{ parameters.azureRmConnection }}
               vsixFile: $(Agent.TempDirectory)/vs-marketplace-test-stamped.vsix
-              manifestFile: tests/sample-extension/publish-manifest.json
+              manifestFile: $(Agent.TempDirectory)/publish-manifest-stamped.json
               publisherId: ${{ parameters.publisherId }}

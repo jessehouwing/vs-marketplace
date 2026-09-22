@@ -85,12 +85,19 @@ jobs:
 
       - name: Stamp unique test .vsix version
         id: stamp-vsix
+        env:
+          # Matrix combinations run concurrently, so each one must publish to its own private
+          # extension (rather than racing for the "next" version of a shared one).
+          EXTENSION_ID: vs-marketplace-test-actions-${{ inputs.auth-type }}
         shell: pwsh
         run: |
           ./Scripts/Stamp-TestVsix.ps1 `
             -SourcePath tests/sample-extension/vs-marketplace-test-1.0.0.vsix `
             -OutputPath "$env:RUNNER_TEMP/vs-marketplace-test-stamped.vsix" `
-            -AccessToken "${{ steps.azure-devops-token.outputs.token }}"
+            -ExtensionId "$env:EXTENSION_ID" `
+            -AccessToken "${{ steps.azure-devops-token.outputs.token }}" `
+            -ManifestPath tests/sample-extension/publish-manifest.json `
+            -ManifestOutputPath "$env:RUNNER_TEMP/publish-manifest-stamped.json"
 
       - name: Publish VS extension
         uses: $/
@@ -98,5 +105,5 @@ jobs:
           auth-type: ${{ inputs.auth-type }}
           token: ${{ inputs.auth-type == 'pat' && steps.azure-devops-token.outputs.token || '' }}
           vsix-file: ${{ runner.temp }}/vs-marketplace-test-stamped.vsix
-          manifest-file: tests/sample-extension/publish-manifest.json
+          manifest-file: ${{ runner.temp }}/publish-manifest-stamped.json
           publisher-id: ${{ env.PUBLISHER_ID }}
