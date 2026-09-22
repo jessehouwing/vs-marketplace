@@ -40,8 +40,10 @@
 
 .PARAMETER AccessToken
     Bearer/PAT token used to query the Marketplace Gallery API for the currently published
-    version. When omitted, falls back to the VSS_PAT / SYSTEM_ACCESSTOKEN environment variables,
-    then to an unauthenticated request.
+    version. When omitted, falls back to the VSS_PAT / SYSTEM_ACCESSTOKEN environment variables.
+    The Gallery API requires authentication - a missing, invalid, or expired token (or any other
+    non-404 failure) causes the script to fail rather than silently assuming 1.0.0; only a 404
+    (extension never published under this publisher/id) falls back to 1.0.0.
 
 .PARAMETER Version
     Optional explicit version to stamp (3- or 4-part dotted version, e.g. 1.0.1 or 1.0.1234.5678),
@@ -107,7 +109,10 @@ function Get-NextMarketplaceVersion {
     $uri = "https://marketplace.visualstudio.com/_apis/gallery/publishers/$PublisherId/extensions/$ExtensionId" +
         '?flags=1&api-version=7.2-preview.1'
 
-    $headers = @{ Accept = 'application/json;api-version=7.2-preview.1' }
+    $headers = @{
+        Accept                  = 'application/json;api-version=7.2-preview.1'
+        'X-TFS-FedAuthRedirect' = 'Suppress'
+    }
     if (-not $AccessToken) {
         $AccessToken = $env:VSS_PAT
     }
@@ -122,6 +127,27 @@ function Get-NextMarketplaceVersion {
         $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method Get
     }
     catch {
+        # A 404 means the extension has never been published under this publisher/id - that's
+        # expected for a brand-new scenario-specific extension id and should fall back to 1.0.0.
+        # Any other failure (401/403 auth, network, throttling, etc.) is a real error and must
+        # not be silently swallowed, or the pipeline would keep re-publishing 1.0.0 and failing.
+        # X-TFS-FedAuthRedirect: Suppress (above) ensures auth failures come back as a proper
+        # 401/403 instead of a 200 OK HTML sign-in redirect page that would otherwise be
+        # indistinguishable from a legitimate "no versions" response.
+        $statusCode = $null
+        if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
+            $statusCode = [int]$_.Exception.Response.StatusCode
+        }
+
+        if ($statusCode -eq 404) {
+            Write-Host "No published extension found for '$PublisherId.$ExtensionId' (404). Starting at 1.0.0."
+            return '1.0.0'
+        }
+
+        if ($statusCode -eq 401 -or $statusCode -eq 403) {
+            throw "Could not query Marketplace for current version of '$PublisherId.$ExtensionId': authentication failed (HTTP $statusCode). Check that a valid access token is available."
+        }
+
         throw "Could not query Marketplace for current version of '$PublisherId.$ExtensionId': $($_.Exception.Message)"
     }
 
@@ -177,16 +203,19 @@ try {
     $manifest = $reader.ReadToEnd()
     $reader.Dispose()
 
-    $updatedManifest = $manifest -replace '(<Identity\b[^>]*\bVersion=")[^"]+(")', "`${1}$Version`${2}"
-    if ($updatedManifest -eq $manifest) {
+    # Check whether the pattern matched via -match rather than comparing before/after strings -
+    # a before/after equality check would false-positive as "not found" whenever the replacement
+    # value happens to be identical to the value already in the manifest (e.g. the fallback
+    # version 1.0.0 matching the fixture's existing 1.0.0).
+    if ($manifest -notmatch '<Identity\b[^>]*\bVersion="[^"]+"') {
         throw 'Failed to locate Identity Version attribute to replace in extension.vsixmanifest'
     }
+    $updatedManifest = $manifest -replace '(<Identity\b[^>]*\bVersion=")[^"]+(")', "`${1}$Version`${2}"
 
-    $beforeIdReplace = $updatedManifest
-    $updatedManifest = $updatedManifest -replace '(<Identity\b[^>]*\bId=")[^"]+(")', "`${1}$ExtensionId`${2}"
-    if ($updatedManifest -eq $beforeIdReplace) {
+    if ($updatedManifest -notmatch '<Identity\b[^>]*\bId="[^"]+"') {
         throw 'Failed to locate Identity Id attribute to replace in extension.vsixmanifest'
     }
+    $updatedManifest = $updatedManifest -replace '(<Identity\b[^>]*\bId=")[^"]+(")', "`${1}$ExtensionId`${2}"
 
     $entry.Delete()
     $newEntry = $zip.CreateEntry('extension.vsixmanifest')
