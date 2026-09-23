@@ -152,7 +152,7 @@ stages:
                 -ManifestOutputPath $(Agent.TempDirectory)/publish-manifest-stamped.json
 
           # --- Publish: push the pre-built .vsix fixture to the Visual Studio Marketplace ---
-          - task: vs-marketplace@6
+          - task: vs-marketplace@0.9.16
             displayName: Publish VS extension
             inputs:
               connectionType: ${{ parameters.connectionType }}
