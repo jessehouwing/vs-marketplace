@@ -848,9 +848,41 @@ jobs:
           git tag -fa $majorMinor -m "Floating tag $majorMinor" HEAD
           git push origin $majorMinor --force
 
+  # ---------------------------------------------------------------------------
+  # Job 8b: Check semver hygiene
+  # Runs after the immutable release + floating tags exist. Independent of
+  # the manually-approved Marketplace publish, so semver bookkeeping isn't
+  # blocked on/by that approval. Skipped in dry-run (no new immutable
+  # release/tag semantics were finalized).
+  # ---------------------------------------------------------------------------
+  check-semver:
+    name: Check SemVer
+    needs: [prepare-release, publish-github-release]
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@v2.21.1
+        with:
+          egress-policy: audit
+
+      - uses: jessehouwing/actions-semver-checker@v2.1.1
+        with:
+          floating-versions-use: tags
+          check-minor-version: error
+          check-release-immutability: error
+          ignore-preview-releases: true
+          check-releases: error
+          token: ${{ secrets.GITHUB_TOKEN }}
+          auto-fix: false
+
   cleanup:
     name: Cleanup release branch
-    needs: [prepare-release, publish-production, create-release, publish-github-release]
+    needs:
+      [prepare-release, publish-production, create-release, publish-github-release, check-semver]
     if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
     permissions:
