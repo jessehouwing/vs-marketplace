@@ -57,6 +57,7 @@ workflows:
         - 'actions/upload-artifact@v7.0.2'
         - 'azure/login@v3.1.0'
         - 'jessehouwing/actions-example-checker@v0.0.11'
+        - 'jessehouwing/actions-semver-checker@v2.1.1'
         - 'jessehouwing/azdo-marketplace@v6.3.15'
         - 'step-security/harden-runner@v2.22.1'
     '.github/workflows/scorecard.yml':
