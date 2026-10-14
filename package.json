@@ -63,9 +63,9 @@
     "typescript-eslint": "^8.71.1"
   },
   "optionalDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "^4.62.0",
-    "@rollup/rollup-win32-x64-gnu": "^4.61.0",
-    "@rollup/rollup-win32-x64-msvc": "^4.62.0"
+    "@rollup/rollup-linux-x64-gnu": "^4.64.5",
+    "@rollup/rollup-win32-x64-gnu": "^4.64.5",
+    "@rollup/rollup-win32-x64-msvc": "^4.64.5"
   },
   "overrides": {
     "@babel/core": "^7.29.7",
