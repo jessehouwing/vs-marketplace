@@ -6,7 +6,7 @@ const __dirname = __internal_dirname(__filename);
 
 import * as os from 'os';
 import os__default from 'os';
-import crypto$1, { createHash } from 'crypto';
+import crypto, { createHash, X509Certificate } from 'crypto';
 import * as fs from 'fs';
 import { promises, accessSync, constants as constants$6, statSync, readFileSync, existsSync } from 'fs';
 import * as path from 'path';
@@ -17,7 +17,7 @@ import require$$0$7 from 'net';
 import require$$1 from 'tls';
 import * as events$1 from 'events';
 import events__default from 'events';
-import require$$5$6 from 'assert';
+import require$$5$5 from 'assert';
 import require$$5 from 'util';
 import require$$0$1 from 'node:assert';
 import require$$0$3 from 'node:net';
@@ -34,15 +34,15 @@ import require$$5$2 from 'node:perf_hooks';
 import require$$8$1 from 'node:util/types';
 import require$$1$1 from 'node:worker_threads';
 import require$$10, { randomUUID as randomUUID$1, createPrivateKey, createHash as createHash$1 } from 'node:crypto';
-import require$$5$3 from 'node:http2';
+import require$$6 from 'node:http2';
 import require$$1$2, { fileURLToPath } from 'node:url';
-import require$$5$4 from 'node:async_hooks';
+import require$$5$3 from 'node:async_hooks';
 import require$$1$3 from 'node:console';
 import require$$1$4 from 'node:dns';
-import require$$5$5, { StringDecoder } from 'string_decoder';
+import require$$5$4, { StringDecoder } from 'string_decoder';
 import * as child from 'child_process';
 import { setTimeout as setTimeout$1 } from 'timers';
-import require$$5$7, { fileURLToPath as fileURLToPath$1 } from 'url';
+import require$$5$6, { fileURLToPath as fileURLToPath$1 } from 'url';
 import os$1, { EOL } from 'node:os';
 import process$1 from 'node:process';
 import require$$0$6 from 'buffer';
@@ -50,10 +50,10 @@ import require$$3, { Readable } from 'stream';
 import require$$1$5 from 'tty';
 import https$1 from 'node:https';
 import fs$2, { readFile, constants as constants$8 } from 'node:fs/promises';
+import fs$1, { readFileSync as readFileSync$1, statSync as statSync$1, accessSync as accessSync$1, constants as constants$7, realpathSync } from 'node:fs';
 import * as childProcess from 'node:child_process';
-import childProcess__default, { execFile as execFile$2 } from 'node:child_process';
+import childProcess__default, { execFile as execFile$3 } from 'node:child_process';
 import path$1 from 'node:path';
-import fs$1, { statSync as statSync$1, accessSync as accessSync$1, constants as constants$7, realpathSync } from 'node:fs';
 
 // We use any as a valid input type
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -2468,11 +2468,77 @@ function requireRequest$1 () {
 	    }
 	  }
 
-	  onUpgrade (statusCode, headers, socket) {
+	  /**
+	   * @param {number|null} statusCode
+	   * @param {Buffer[]|null} headers
+	   * @param {import('node:stream').Duplex} socket
+	   * @param {string} [statusText]
+	   */
+	  onUpgrade (statusCode, headers, socket, statusText = '') {
+	    this.onFinally();
+
 	    assert(!this.aborted);
 	    assert(!this.completed);
 
-	    return this[kHandler].onUpgrade(statusCode, headers, socket)
+	    if (statusCode !== null) {
+	      this.#publishUpgradeHeaders(statusCode, headers, statusText);
+	    }
+
+	    const result = this[kHandler].onUpgrade(statusCode, headers, socket);
+
+	    if (!this.aborted) {
+	      this.completed = true;
+	      if (statusCode !== null) {
+	        this.#publishUpgradeTrailers();
+	      }
+	    }
+
+	    return result
+	  }
+
+	  /**
+	   * @param {number} statusCode
+	   * @param {import('node:http2').IncomingHttpHeaders} headers
+	   * @param {(headers: import('node:http2').IncomingHttpHeaders) => Buffer[]} parseHeaders
+	   * @param {string} [statusText]
+	   */
+	  onUpgradeResponse (statusCode, headers, parseHeaders, statusText = '') {
+	    assert(!this.aborted);
+	    assert(this.completed);
+
+	    if (channels.headers.hasSubscribers) {
+	      this.#publishUpgradeHeaders(statusCode, parseHeaders(headers), statusText);
+	    }
+	    this.#publishUpgradeTrailers();
+	  }
+
+	  /**
+	   * @param {Error} error
+	   */
+	  onUpgradeError (error) {
+	    assert(!this.aborted);
+	    assert(this.completed);
+
+	    if (channels.error.hasSubscribers) {
+	      channels.error.publish({ request: this, error });
+	    }
+	  }
+
+	  /**
+	   * @param {number} statusCode
+	   * @param {Buffer[]} headers
+	   * @param {string} statusText
+	   */
+	  #publishUpgradeHeaders (statusCode, headers, statusText) {
+	    if (channels.headers.hasSubscribers) {
+	      channels.headers.publish({ request: this, response: { statusCode, headers, statusText } });
+	    }
+	  }
+
+	  #publishUpgradeTrailers () {
+	    if (channels.trailers.hasSubscribers) {
+	      channels.trailers.publish({ request: this, trailers: [] });
+	    }
 	  }
 
 	  onComplete (trailers) {
@@ -9055,7 +9121,7 @@ function requireClientH1 () {
 	  }
 
 	  onUpgrade (head) {
-	    const { upgrade, client, socket, headers, statusCode } = this;
+	    const { upgrade, client, socket, headers, statusCode, statusText } = this;
 
 	    assert(upgrade);
 	    assert(client[kSocket] === socket);
@@ -9090,9 +9156,10 @@ function requireClientH1 () {
 	    client.emit('disconnect', client[kUrl], [client], new InformationalError('upgrade'));
 
 	    try {
-	      request.onUpgrade(statusCode, headers, socket);
-	    } catch (err) {
-	      util.destroy(socket, err);
+	      request.onUpgrade(statusCode, headers, socket, statusText);
+	    } catch (error) {
+	      util.errorRequest(client, request, error);
+	      util.destroy(socket, error);
 	    }
 
 	    client[kResume]();
@@ -9673,12 +9740,22 @@ function requireClientH1 () {
 	  const socket = client[kSocket];
 	  clearIdleSocketValidation(socket);
 
-	  const abort = (err) => {
-	    if (request.aborted || request.completed) {
+	  /**
+	   * @param {Error} [error]
+	   */
+	  const abort = (error) => {
+	    if (request.aborted) {
 	      return
 	    }
 
-	    util.errorRequest(client, request, err || new RequestAbortedError());
+	    if (request.completed) {
+	      if (request.upgrade || request.method === 'CONNECT') {
+	        util.destroy(socket, new InformationalError('aborted'));
+	      }
+	      return
+	    }
+
+	    util.errorRequest(client, request, error || new RequestAbortedError());
 
 	    util.destroy(body);
 	    util.destroy(socket, new InformationalError('aborted'));
@@ -10136,6 +10213,7 @@ function requireClientH2 () {
 	hasRequiredClientH2 = 1;
 
 	const assert = require$$0$1;
+	const { errorMonitor } = require$$8;
 	const { pipeline } = require$$0$2;
 	const util = requireUtil$7();
 	const {
@@ -10174,7 +10252,7 @@ function requireClientH2 () {
 	/** @type {import('http2')} */
 	let http2;
 	try {
-	  http2 = require$$5$3;
+	  http2 = require$$6;
 	} catch {
 	  // @ts-ignore
 	  http2 = { constants: {} };
@@ -10210,6 +10288,15 @@ function requireClientH2 () {
 	  }
 
 	  return result
+	}
+
+	/**
+	 * @param {import('node:http2').IncomingHttpHeaders} headers
+	 * @returns {Buffer[]}
+	 */
+	function parseH2ResponseHeaders (headers) {
+	  const { [HTTP2_HEADER_STATUS]: _statusCode, ...realHeaders } = headers;
+	  return parseH2Headers(realHeaders)
 	}
 
 	async function connectH2 (client, socket) {
@@ -10432,22 +10519,32 @@ function requireClientH2 () {
 	  headers[HTTP2_HEADER_AUTHORITY] = host || `${hostname}${port ? `:${port}` : ''}`;
 	  headers[HTTP2_HEADER_METHOD] = method;
 
-	  const abort = (err) => {
-	    if (request.aborted || request.completed) {
+	  /**
+	   * @param {Error} [error]
+	   */
+	  const abort = (error) => {
+	    if (request.aborted) {
 	      return
 	    }
 
-	    err = err || new RequestAbortedError();
+	    if (request.completed) {
+	      if (method === 'CONNECT' && stream != null) {
+	        util.destroy(stream, error || new RequestAbortedError());
+	      }
+	      return
+	    }
 
-	    util.errorRequest(client, request, err);
+	    error = error || new RequestAbortedError();
+
+	    util.errorRequest(client, request, error);
 
 	    if (stream != null) {
-	      util.destroy(stream, err);
+	      util.destroy(stream, error);
 	    }
 
 	    // We do not destroy the socket as we can continue using the session
 	    // the stream get's destroyed and the session remains to create new streams
-	    util.destroy(body, err);
+	    util.destroy(body, error);
 	    client[kQueue][client[kRunningIdx]++] = null;
 	    client[kResume]();
 	  };
@@ -10466,25 +10563,57 @@ function requireClientH2 () {
 
 	  if (method === 'CONNECT') {
 	    session.ref();
-	    // We are already connected, streams are pending, first request
-	    // will create a new stream. We trigger a request to create the stream and wait until
-	    // `ready` event is triggered
 	    // We disabled endStream to allow the user to write to the stream
 	    stream = session.request(headers, { endStream: false, signal });
+	    let upgradeResponseFinished = false;
 
-	    if (stream.id && !stream.pending) {
-	      request.onUpgrade(null, null, stream);
-	      ++session[kOpenStreams];
-	      client[kQueue][client[kRunningIdx]++] = null;
-	    } else {
-	      stream.once('ready', () => {
+	    /**
+	     * @param {import('node:http2').IncomingHttpHeaders} headers
+	     */
+	    const onResponse = (headers) => {
+	      upgradeResponseFinished = true;
+	      stream.off(errorMonitor, onUpgradeError);
+	      request.onUpgradeResponse(Number(headers[HTTP2_HEADER_STATUS]), headers, parseH2ResponseHeaders);
+	    };
+
+	    /**
+	     * @param {Error} error
+	     */
+	    const onUpgradeError = (error) => {
+	      upgradeResponseFinished = true;
+	      stream.off('response', onResponse);
+	      request.onUpgradeError(error);
+	    };
+
+	    const onReady = () => {
+	      try {
 	        request.onUpgrade(null, null, stream);
-	        ++session[kOpenStreams];
-	        client[kQueue][client[kRunningIdx]++] = null;
-	      });
-	    }
+	      } catch (error) {
+	        stream.off('response', onResponse);
+	        abort(error);
+	        return
+	      }
+
+	      if (request.aborted) {
+	        return
+	      }
+
+	      stream.off('error', abort);
+	      stream.once(errorMonitor, onUpgradeError);
+	      client[kQueue][client[kRunningIdx]++] = null;
+	    };
+
+	    stream.once('response', onResponse);
+	    stream.once('error', abort);
+	    ++session[kOpenStreams];
+	    onReady();
 
 	    stream.once('close', () => {
+	      if (!upgradeResponseFinished && request.completed) {
+	        stream.off('response', onResponse);
+	        stream.off(errorMonitor, onUpgradeError);
+	        request.onUpgradeError(new InformationalError(`HTTP/2: "stream error" received - code ${stream.rstCode}`));
+	      }
 	      session[kOpenStreams] -= 1;
 	      if (session[kOpenStreams] === 0) session.unref();
 	    });
@@ -13259,7 +13388,10 @@ function requireRetryHandler () {
 	    this.retryCount += 1;
 
 	    if (statusCode >= 300) {
-	      if (this.retryOpts.statusCodes.includes(statusCode) === false) {
+	      // Only expose a response if no earlier attempt has reached the caller.
+	      // Otherwise abort this attempt so the error settles the existing body
+	      // instead of replacing it with a new response.
+	      if (!this.headersSent && this.retryOpts.statusCodes.includes(statusCode) === false) {
 	        this.headersSent = true;
 	        this.checkpointResponseEnd(headers, resume);
 	        return this.handler.onHeaders(
@@ -14040,7 +14172,7 @@ function requireApiRequest () {
 	const { InvalidArgumentError, RequestAbortedError } = requireErrors();
 	const util = requireUtil$7();
 	const { getResolveErrorBodyCallback } = requireUtil$5();
-	const { AsyncResource } = require$$5$4;
+	const { AsyncResource } = require$$5$3;
 
 	class RequestHandler extends AsyncResource {
 	  constructor (opts, callback) {
@@ -14328,7 +14460,7 @@ function requireApiStream () {
 	const { InvalidArgumentError, InvalidReturnValueError } = requireErrors();
 	const util = requireUtil$7();
 	const { getResolveErrorBodyCallback } = requireUtil$5();
-	const { AsyncResource } = require$$5$4;
+	const { AsyncResource } = require$$5$3;
 	const { addSignal, removeSignal } = requireAbortSignal();
 
 	class StreamHandler extends AsyncResource {
@@ -14562,7 +14694,7 @@ function requireApiPipeline () {
 	  RequestAbortedError
 	} = requireErrors();
 	const util = requireUtil$7();
-	const { AsyncResource } = require$$5$4;
+	const { AsyncResource } = require$$5$3;
 	const { addSignal, removeSignal } = requireAbortSignal();
 	const assert = require$$0$1;
 
@@ -14811,7 +14943,7 @@ function requireApiUpgrade () {
 	hasRequiredApiUpgrade = 1;
 
 	const { InvalidArgumentError, SocketError } = requireErrors();
-	const { AsyncResource } = require$$5$4;
+	const { AsyncResource } = require$$5$3;
 	const util = requireUtil$7();
 	const { addSignal, removeSignal } = requireAbortSignal();
 	const assert = require$$0$1;
@@ -14927,7 +15059,7 @@ function requireApiConnect () {
 	hasRequiredApiConnect = 1;
 
 	const assert = require$$0$1;
-	const { AsyncResource } = require$$5$4;
+	const { AsyncResource } = require$$5$3;
 	const { InvalidArgumentError, SocketError } = requireErrors();
 	const util = requireUtil$7();
 	const { addSignal, removeSignal } = requireAbortSignal();
@@ -21796,7 +21928,7 @@ function requireUtil$4 () {
 	const { getEncoding } = requireEncoding();
 	const { serializeAMimeType, parseMIMEType } = requireDataUrl();
 	const { types } = require$$0$4;
-	const { StringDecoder } = require$$5$5;
+	const { StringDecoder } = require$$5$4;
 	const { btoa } = require$$0;
 
 	/** @type {PropertyDescriptor} */
@@ -28648,7 +28780,7 @@ function findInPath(tool) {
     });
 }
 
-(this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+var __awaiter$1 = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
         function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
@@ -28658,9 +28790,577 @@ function findInPath(tool) {
     });
 };
 /* eslint-disable @typescript-eslint/unbound-method */
-process.platform === 'win32';
+const IS_WINDOWS = process.platform === 'win32';
+/*
+ * Class for running command line tools. Handles quoting and arg parsing in a platform agnostic way.
+ */
+class ToolRunner extends events$1.EventEmitter {
+    constructor(toolPath, args, options) {
+        super();
+        if (!toolPath) {
+            throw new Error("Parameter 'toolPath' cannot be null or empty.");
+        }
+        this.toolPath = toolPath;
+        this.args = args || [];
+        this.options = options || {};
+    }
+    _debug(message) {
+        if (this.options.listeners && this.options.listeners.debug) {
+            this.options.listeners.debug(message);
+        }
+    }
+    _getCommandString(options, noPrefix) {
+        const toolPath = this._getSpawnFileName();
+        const args = this._getSpawnArgs(options);
+        let cmd = noPrefix ? '' : '[command]'; // omit prefix when piped to a second tool
+        if (IS_WINDOWS) {
+            // Windows + cmd file
+            if (this._isCmdFile()) {
+                cmd += toolPath;
+                for (const a of args) {
+                    cmd += ` ${a}`;
+                }
+            }
+            // Windows + verbatim
+            else if (options.windowsVerbatimArguments) {
+                cmd += `"${toolPath}"`;
+                for (const a of args) {
+                    cmd += ` ${a}`;
+                }
+            }
+            // Windows (regular)
+            else {
+                cmd += this._windowsQuoteCmdArg(toolPath);
+                for (const a of args) {
+                    cmd += ` ${this._windowsQuoteCmdArg(a)}`;
+                }
+            }
+        }
+        else {
+            // OSX/Linux - this can likely be improved with some form of quoting.
+            // creating processes on Unix is fundamentally different than Windows.
+            // on Unix, execvp() takes an arg array.
+            cmd += toolPath;
+            for (const a of args) {
+                cmd += ` ${a}`;
+            }
+        }
+        return cmd;
+    }
+    _processLineBuffer(data, strBuffer, onLine) {
+        try {
+            let s = strBuffer + data.toString();
+            let n = s.indexOf(os.EOL);
+            while (n > -1) {
+                const line = s.substring(0, n);
+                onLine(line);
+                // the rest of the string ...
+                s = s.substring(n + os.EOL.length);
+                n = s.indexOf(os.EOL);
+            }
+            return s;
+        }
+        catch (err) {
+            // streaming lines to console is best effort.  Don't fail a build.
+            this._debug(`error processing line. Failed with error ${err}`);
+            return '';
+        }
+    }
+    _getSpawnFileName() {
+        if (IS_WINDOWS) {
+            if (this._isCmdFile()) {
+                return process.env['COMSPEC'] || 'cmd.exe';
+            }
+        }
+        return this.toolPath;
+    }
+    _getSpawnArgs(options) {
+        if (IS_WINDOWS) {
+            if (this._isCmdFile()) {
+                let argline = `/D /S /C "${this._windowsQuoteCmdArg(this.toolPath)}`;
+                for (const a of this.args) {
+                    argline += ' ';
+                    argline += options.windowsVerbatimArguments
+                        ? a
+                        : this._windowsQuoteCmdArg(a);
+                }
+                argline += '"';
+                return [argline];
+            }
+        }
+        return this.args;
+    }
+    _endsWith(str, end) {
+        return str.endsWith(end);
+    }
+    _isCmdFile() {
+        const upperToolPath = this.toolPath.toUpperCase();
+        return (this._endsWith(upperToolPath, '.CMD') ||
+            this._endsWith(upperToolPath, '.BAT'));
+    }
+    _windowsQuoteCmdArg(arg) {
+        // for .exe, apply the normal quoting rules that libuv applies
+        if (!this._isCmdFile()) {
+            return this._uvQuoteCmdArg(arg);
+        }
+        // otherwise apply quoting rules specific to the cmd.exe command line parser.
+        // the libuv rules are generic and are not designed specifically for cmd.exe
+        // command line parser.
+        //
+        // for a detailed description of the cmd.exe command line parser, refer to
+        // http://stackoverflow.com/questions/4094699/how-does-the-windows-command-interpreter-cmd-exe-parse-scripts/7970912#7970912
+        // need quotes for empty arg
+        if (!arg) {
+            return '""';
+        }
+        // determine whether the arg needs to be quoted
+        const cmdSpecialChars = [
+            ' ',
+            '\t',
+            '&',
+            '(',
+            ')',
+            '[',
+            ']',
+            '{',
+            '}',
+            '^',
+            '=',
+            ';',
+            '!',
+            "'",
+            '+',
+            ',',
+            '`',
+            '~',
+            '|',
+            '<',
+            '>',
+            '"'
+        ];
+        let needsQuotes = false;
+        for (const char of arg) {
+            if (cmdSpecialChars.some(x => x === char)) {
+                needsQuotes = true;
+                break;
+            }
+        }
+        // short-circuit if quotes not needed
+        if (!needsQuotes) {
+            return arg;
+        }
+        // the following quoting rules are very similar to the rules that by libuv applies.
+        //
+        // 1) wrap the string in quotes
+        //
+        // 2) double-up quotes - i.e. " => ""
+        //
+        //    this is different from the libuv quoting rules. libuv replaces " with \", which unfortunately
+        //    doesn't work well with a cmd.exe command line.
+        //
+        //    note, replacing " with "" also works well if the arg is passed to a downstream .NET console app.
+        //    for example, the command line:
+        //          foo.exe "myarg:""my val"""
+        //    is parsed by a .NET console app into an arg array:
+        //          [ "myarg:\"my val\"" ]
+        //    which is the same end result when applying libuv quoting rules. although the actual
+        //    command line from libuv quoting rules would look like:
+        //          foo.exe "myarg:\"my val\""
+        //
+        // 3) double-up slashes that precede a quote,
+        //    e.g.  hello \world    => "hello \world"
+        //          hello\"world    => "hello\\""world"
+        //          hello\\"world   => "hello\\\\""world"
+        //          hello world\    => "hello world\\"
+        //
+        //    technically this is not required for a cmd.exe command line, or the batch argument parser.
+        //    the reasons for including this as a .cmd quoting rule are:
+        //
+        //    a) this is optimized for the scenario where the argument is passed from the .cmd file to an
+        //       external program. many programs (e.g. .NET console apps) rely on the slash-doubling rule.
+        //
+        //    b) it's what we've been doing previously (by deferring to node default behavior) and we
+        //       haven't heard any complaints about that aspect.
+        //
+        // note, a weakness of the quoting rules chosen here, is that % is not escaped. in fact, % cannot be
+        // escaped when used on the command line directly - even though within a .cmd file % can be escaped
+        // by using %%.
+        //
+        // the saving grace is, on the command line, %var% is left as-is if var is not defined. this contrasts
+        // the line parsing rules within a .cmd file, where if var is not defined it is replaced with nothing.
+        //
+        // one option that was explored was replacing % with ^% - i.e. %var% => ^%var^%. this hack would
+        // often work, since it is unlikely that var^ would exist, and the ^ character is removed when the
+        // variable is used. the problem, however, is that ^ is not removed when %* is used to pass the args
+        // to an external program.
+        //
+        // an unexplored potential solution for the % escaping problem, is to create a wrapper .cmd file.
+        // % can be escaped within a .cmd file.
+        let reverse = '"';
+        let quoteHit = true;
+        for (let i = arg.length; i > 0; i--) {
+            // walk the string in reverse
+            reverse += arg[i - 1];
+            if (quoteHit && arg[i - 1] === '\\') {
+                reverse += '\\'; // double the slash
+            }
+            else if (arg[i - 1] === '"') {
+                quoteHit = true;
+                reverse += '"'; // double the quote
+            }
+            else {
+                quoteHit = false;
+            }
+        }
+        reverse += '"';
+        return reverse.split('').reverse().join('');
+    }
+    _uvQuoteCmdArg(arg) {
+        // Tool runner wraps child_process.spawn() and needs to apply the same quoting as
+        // Node in certain cases where the undocumented spawn option windowsVerbatimArguments
+        // is used.
+        //
+        // Since this function is a port of quote_cmd_arg from Node 4.x (technically, lib UV,
+        // see https://github.com/nodejs/node/blob/v4.x/deps/uv/src/win/process.c for details),
+        // pasting copyright notice from Node within this function:
+        //
+        //      Copyright Joyent, Inc. and other Node contributors. All rights reserved.
+        //
+        //      Permission is hereby granted, free of charge, to any person obtaining a copy
+        //      of this software and associated documentation files (the "Software"), to
+        //      deal in the Software without restriction, including without limitation the
+        //      rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+        //      sell copies of the Software, and to permit persons to whom the Software is
+        //      furnished to do so, subject to the following conditions:
+        //
+        //      The above copyright notice and this permission notice shall be included in
+        //      all copies or substantial portions of the Software.
+        //
+        //      THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        //      IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        //      FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        //      AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        //      LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+        //      FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+        //      IN THE SOFTWARE.
+        if (!arg) {
+            // Need double quotation for empty argument
+            return '""';
+        }
+        if (!arg.includes(' ') && !arg.includes('\t') && !arg.includes('"')) {
+            // No quotation needed
+            return arg;
+        }
+        if (!arg.includes('"') && !arg.includes('\\')) {
+            // No embedded double quotes or backslashes, so I can just wrap
+            // quote marks around the whole thing.
+            return `"${arg}"`;
+        }
+        // Expected input/output:
+        //   input : hello"world
+        //   output: "hello\"world"
+        //   input : hello""world
+        //   output: "hello\"\"world"
+        //   input : hello\world
+        //   output: hello\world
+        //   input : hello\\world
+        //   output: hello\\world
+        //   input : hello\"world
+        //   output: "hello\\\"world"
+        //   input : hello\\"world
+        //   output: "hello\\\\\"world"
+        //   input : hello world\
+        //   output: "hello world\\" - note the comment in libuv actually reads "hello world\"
+        //                             but it appears the comment is wrong, it should be "hello world\\"
+        let reverse = '"';
+        let quoteHit = true;
+        for (let i = arg.length; i > 0; i--) {
+            // walk the string in reverse
+            reverse += arg[i - 1];
+            if (quoteHit && arg[i - 1] === '\\') {
+                reverse += '\\';
+            }
+            else if (arg[i - 1] === '"') {
+                quoteHit = true;
+                reverse += '\\';
+            }
+            else {
+                quoteHit = false;
+            }
+        }
+        reverse += '"';
+        return reverse.split('').reverse().join('');
+    }
+    _cloneExecOptions(options) {
+        options = options || {};
+        const result = {
+            cwd: options.cwd || process.cwd(),
+            env: options.env || process.env,
+            silent: options.silent || false,
+            windowsVerbatimArguments: options.windowsVerbatimArguments || false,
+            failOnStdErr: options.failOnStdErr || false,
+            ignoreReturnCode: options.ignoreReturnCode || false,
+            delay: options.delay || 10000
+        };
+        result.outStream = options.outStream || process.stdout;
+        result.errStream = options.errStream || process.stderr;
+        return result;
+    }
+    _getSpawnOptions(options, toolPath) {
+        options = options || {};
+        const result = {};
+        result.cwd = options.cwd;
+        result.env = options.env;
+        result['windowsVerbatimArguments'] =
+            options.windowsVerbatimArguments || this._isCmdFile();
+        if (options.windowsVerbatimArguments) {
+            result.argv0 = `"${toolPath}"`;
+        }
+        return result;
+    }
+    /**
+     * Exec a tool.
+     * Output will be streamed to the live console.
+     * Returns promise with return code
+     *
+     * @param     tool     path to tool to exec
+     * @param     options  optional exec options.  See ExecOptions
+     * @returns   number
+     */
+    exec() {
+        return __awaiter$1(this, void 0, void 0, function* () {
+            // root the tool path if it is unrooted and contains relative pathing
+            if (!isRooted(this.toolPath) &&
+                (this.toolPath.includes('/') ||
+                    (IS_WINDOWS && this.toolPath.includes('\\')))) {
+                // prefer options.cwd if it is specified, however options.cwd may also need to be rooted
+                this.toolPath = path.resolve(process.cwd(), this.options.cwd || process.cwd(), this.toolPath);
+            }
+            // if the tool is only a file name, then resolve it from the PATH
+            // otherwise verify it exists (add extension on Windows if necessary)
+            this.toolPath = yield which(this.toolPath, true);
+            return new Promise((resolve, reject) => __awaiter$1(this, void 0, void 0, function* () {
+                this._debug(`exec tool: ${this.toolPath}`);
+                this._debug('arguments:');
+                for (const arg of this.args) {
+                    this._debug(`   ${arg}`);
+                }
+                const optionsNonNull = this._cloneExecOptions(this.options);
+                if (!optionsNonNull.silent && optionsNonNull.outStream) {
+                    optionsNonNull.outStream.write(this._getCommandString(optionsNonNull) + os.EOL);
+                }
+                const state = new ExecState(optionsNonNull, this.toolPath);
+                state.on('debug', (message) => {
+                    this._debug(message);
+                });
+                if (this.options.cwd && !(yield exists(this.options.cwd))) {
+                    return reject(new Error(`The cwd: ${this.options.cwd} does not exist!`));
+                }
+                const fileName = this._getSpawnFileName();
+                const cp = child.spawn(fileName, this._getSpawnArgs(optionsNonNull), this._getSpawnOptions(this.options, fileName));
+                let stdbuffer = '';
+                if (cp.stdout) {
+                    cp.stdout.on('data', (data) => {
+                        if (this.options.listeners && this.options.listeners.stdout) {
+                            this.options.listeners.stdout(data);
+                        }
+                        if (!optionsNonNull.silent && optionsNonNull.outStream) {
+                            optionsNonNull.outStream.write(data);
+                        }
+                        stdbuffer = this._processLineBuffer(data, stdbuffer, (line) => {
+                            if (this.options.listeners && this.options.listeners.stdline) {
+                                this.options.listeners.stdline(line);
+                            }
+                        });
+                    });
+                }
+                let errbuffer = '';
+                if (cp.stderr) {
+                    cp.stderr.on('data', (data) => {
+                        state.processStderr = true;
+                        if (this.options.listeners && this.options.listeners.stderr) {
+                            this.options.listeners.stderr(data);
+                        }
+                        if (!optionsNonNull.silent &&
+                            optionsNonNull.errStream &&
+                            optionsNonNull.outStream) {
+                            const s = optionsNonNull.failOnStdErr
+                                ? optionsNonNull.errStream
+                                : optionsNonNull.outStream;
+                            s.write(data);
+                        }
+                        errbuffer = this._processLineBuffer(data, errbuffer, (line) => {
+                            if (this.options.listeners && this.options.listeners.errline) {
+                                this.options.listeners.errline(line);
+                            }
+                        });
+                    });
+                }
+                cp.on('error', (err) => {
+                    state.processError = err.message;
+                    state.processExited = true;
+                    state.processClosed = true;
+                    state.CheckComplete();
+                });
+                cp.on('exit', (code) => {
+                    state.processExitCode = code;
+                    state.processExited = true;
+                    this._debug(`Exit code ${code} received from tool '${this.toolPath}'`);
+                    state.CheckComplete();
+                });
+                cp.on('close', (code) => {
+                    state.processExitCode = code;
+                    state.processExited = true;
+                    state.processClosed = true;
+                    this._debug(`STDIO streams have closed for tool '${this.toolPath}'`);
+                    state.CheckComplete();
+                });
+                state.on('done', (error, exitCode) => {
+                    if (stdbuffer.length > 0) {
+                        this.emit('stdline', stdbuffer);
+                    }
+                    if (errbuffer.length > 0) {
+                        this.emit('errline', errbuffer);
+                    }
+                    cp.removeAllListeners();
+                    if (error) {
+                        reject(error);
+                    }
+                    else {
+                        resolve(exitCode);
+                    }
+                });
+                if (this.options.input) {
+                    if (!cp.stdin) {
+                        throw new Error('child process missing stdin');
+                    }
+                    cp.stdin.end(this.options.input);
+                }
+            }));
+        });
+    }
+}
+/**
+ * Convert an arg string to an array of args. Handles escaping
+ *
+ * @param    argString   string of arguments
+ * @returns  string[]    array of arguments
+ */
+function argStringToArray(argString) {
+    const args = [];
+    let inQuotes = false;
+    let escaped = false;
+    let arg = '';
+    function append(c) {
+        // we only escape double quotes.
+        if (escaped && c !== '"') {
+            arg += '\\';
+        }
+        arg += c;
+        escaped = false;
+    }
+    for (let i = 0; i < argString.length; i++) {
+        const c = argString.charAt(i);
+        if (c === '"') {
+            if (!escaped) {
+                inQuotes = !inQuotes;
+            }
+            else {
+                append(c);
+            }
+            continue;
+        }
+        if (c === '\\' && escaped) {
+            append(c);
+            continue;
+        }
+        if (c === '\\' && inQuotes) {
+            escaped = true;
+            continue;
+        }
+        if (c === ' ' && !inQuotes) {
+            if (arg.length > 0) {
+                args.push(arg);
+                arg = '';
+            }
+            continue;
+        }
+        append(c);
+    }
+    if (arg.length > 0) {
+        args.push(arg.trim());
+    }
+    return args;
+}
+class ExecState extends events$1.EventEmitter {
+    constructor(options, toolPath) {
+        super();
+        this.processClosed = false; // tracks whether the process has exited and stdio is closed
+        this.processError = '';
+        this.processExitCode = 0;
+        this.processExited = false; // tracks whether the process has exited
+        this.processStderr = false; // tracks whether stderr was written to
+        this.delay = 10000; // 10 seconds
+        this.done = false;
+        this.timeout = null;
+        if (!toolPath) {
+            throw new Error('toolPath must not be empty');
+        }
+        this.options = options;
+        this.toolPath = toolPath;
+        if (options.delay) {
+            this.delay = options.delay;
+        }
+    }
+    CheckComplete() {
+        if (this.done) {
+            return;
+        }
+        if (this.processClosed) {
+            this._setResult();
+        }
+        else if (this.processExited) {
+            this.timeout = setTimeout$1(ExecState.HandleTimeout, this.delay, this);
+        }
+    }
+    _debug(message) {
+        this.emit('debug', message);
+    }
+    _setResult() {
+        // determine whether there is an error
+        let error;
+        if (this.processExited) {
+            if (this.processError) {
+                error = new Error(`There was an error when attempting to execute the process '${this.toolPath}'. This may indicate the process failed to start. Error: ${this.processError}`);
+            }
+            else if (this.processExitCode !== 0 && !this.options.ignoreReturnCode) {
+                error = new Error(`The process '${this.toolPath}' failed with exit code ${this.processExitCode}`);
+            }
+            else if (this.processStderr && this.options.failOnStdErr) {
+                error = new Error(`The process '${this.toolPath}' failed because one or more lines were written to the STDERR stream`);
+            }
+        }
+        // clear the timeout
+        if (this.timeout) {
+            clearTimeout(this.timeout);
+            this.timeout = null;
+        }
+        this.done = true;
+        this.emit('done', error, this.processExitCode);
+    }
+    static HandleTimeout(state) {
+        if (state.done) {
+            return;
+        }
+        if (!state.processClosed && state.processExited) {
+            const message = `The STDIO streams did not close within ${state.delay / 1000} seconds of the exit event from process '${state.toolPath}'. This may indicate a child process inherited the STDIO streams and has not yet exited.`;
+            state._debug(message);
+        }
+        state._setResult();
+    }
+}
 
-(this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
         function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
@@ -28669,6 +29369,73 @@ process.platform === 'win32';
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+/**
+ * Exec a command.
+ * Output will be streamed to the live console.
+ * Returns promise with return code
+ *
+ * @param     commandLine        command to execute (can include additional args). Must be correctly escaped.
+ * @param     args               optional arguments for tool. Escaping is handled by the lib.
+ * @param     options            optional exec options.  See ExecOptions
+ * @returns   Promise<number>    exit code
+ */
+function exec(commandLine, args, options) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const commandArgs = argStringToArray(commandLine);
+        if (commandArgs.length === 0) {
+            throw new Error(`Parameter 'commandLine' cannot be null or empty.`);
+        }
+        // Path to tool to execute should be first arg
+        const toolPath = commandArgs[0];
+        args = commandArgs.slice(1).concat(args || []);
+        const runner = new ToolRunner(toolPath, args, options);
+        return runner.exec();
+    });
+}
+/**
+ * Exec a command and get the output.
+ * Output will be streamed to the live console.
+ * Returns promise with the exit code and collected stdout and stderr
+ *
+ * @param     commandLine           command to execute (can include additional args). Must be correctly escaped.
+ * @param     args                  optional arguments for tool. Escaping is handled by the lib.
+ * @param     options               optional exec options.  See ExecOptions
+ * @returns   Promise<ExecOutput>   exit code, stdout, and stderr
+ */
+function getExecOutput(commandLine, args, options) {
+    return __awaiter(this, void 0, void 0, function* () {
+        var _a, _b;
+        let stdout = '';
+        let stderr = '';
+        //Using string decoder covers the case where a mult-byte character is split
+        const stdoutDecoder = new StringDecoder('utf8');
+        const stderrDecoder = new StringDecoder('utf8');
+        const originalStdoutListener = (_a = options === null || options === void 0 ? void 0 : options.listeners) === null || _a === void 0 ? void 0 : _a.stdout;
+        const originalStdErrListener = (_b = options === null || options === void 0 ? void 0 : options.listeners) === null || _b === void 0 ? void 0 : _b.stderr;
+        const stdErrListener = (data) => {
+            stderr += stderrDecoder.write(data);
+            if (originalStdErrListener) {
+                originalStdErrListener(data);
+            }
+        };
+        const stdOutListener = (data) => {
+            stdout += stdoutDecoder.write(data);
+            if (originalStdoutListener) {
+                originalStdoutListener(data);
+            }
+        };
+        const listeners = Object.assign(Object.assign({}, options === null || options === void 0 ? void 0 : options.listeners), { stdout: stdOutListener, stderr: stdErrListener });
+        const exitCode = yield exec(commandLine, args, Object.assign(Object.assign({}, options), { listeners }));
+        //flush any remaining characters
+        stdout += stdoutDecoder.end();
+        stderr += stderrDecoder.end();
+        return {
+            exitCode,
+            stdout,
+            stderr
+        };
+    });
+}
 
 (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
@@ -28796,7 +29563,7 @@ function info(message) {
 /**
  * Current version of the `@azure/identity` package.
  */
-const SDK_VERSION$1 = `4.13.3`;
+const SDK_VERSION$1 = `4.14.0`;
 /**
  * The default client ID for authentication
  * @internal
@@ -29095,7 +29862,30 @@ function log(message, ...args) {
 
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
-const debugEnvVariable = (typeof process !== "undefined" && process.env && process.env.DEBUG) || undefined;
+/**
+ * Returns the value of the specified environment variable.
+ *
+ * @internal
+ */
+function getEnvironmentVariable(name) {
+    return process$1.env[name];
+}
+/**
+ * A constant that indicates whether the environment the code is running is Deno.
+ */
+typeof process$1.versions.deno === "string" && process$1.versions.deno.length > 0;
+/**
+ * A constant that indicates whether the environment the code is running is Bun.sh.
+ */
+typeof process$1.versions.bun === "string" && process$1.versions.bun.length > 0;
+/**
+ * A constant that indicates whether the environment the code is running is a Node.js compatible environment.
+ */
+const isNodeLike$1 = true;
+
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+const debugEnvVariable = getEnvironmentVariable("DEBUG");
 let enabledString;
 let enabledNamespaces = [];
 let skippedNamespaces = [];
@@ -29300,8 +30090,7 @@ function isTypeSpecRuntimeLogLevel(level) {
  */
 function createLoggerContext(options) {
     const registeredLoggers = new Set();
-    const logLevelFromEnv = (typeof process !== "undefined" && process.env && process.env[options.logLevelEnvVarName]) ||
-        undefined;
+    const logLevelFromEnv = getEnvironmentVariable(options.logLevelEnvVarName);
     let logLevel;
     const clientLogger = debugObj(options.namespace);
     clientLogger.log = (...args) => {
@@ -29533,30 +30322,30 @@ class TracingContextImpl {
     }
 }
 
-var state$3 = {};
+var stateCjs$1 = {};
 
-var hasRequiredState$1;
+var hasRequiredStateCjs$1;
 
-function requireState$1 () {
-	if (hasRequiredState$1) return state$3;
-	hasRequiredState$1 = 1;
+function requireStateCjs$1 () {
+	if (hasRequiredStateCjs$1) return stateCjs$1;
+	hasRequiredStateCjs$1 = 1;
 	// Copyright (c) Microsoft Corporation.
 	// Licensed under the MIT License.
-	Object.defineProperty(state$3, "__esModule", { value: true });
-	state$3.state = void 0;
+	Object.defineProperty(stateCjs$1, "__esModule", { value: true });
+	stateCjs$1.state = void 0;
 	/**
 	 * @internal
 	 *
 	 * Holds the singleton instrumenter, to be shared across CJS and ESM imports.
 	 */
-	state$3.state = {
+	stateCjs$1.state = {
 	    instrumenterImplementation: undefined,
 	};
 	
-	return state$3;
+	return stateCjs$1;
 }
 
-var stateExports$1 = requireState$1();
+var stateCjsExports$1 = requireStateCjs$1();
 
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
@@ -29565,7 +30354,7 @@ var stateExports$1 = requireState$1();
 /**
  * Defines the shared state between CJS and ESM by re-exporting the CJS state.
  */
-const state$2 = stateExports$1.state;
+const state$1 = stateCjsExports$1.state;
 
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
@@ -29614,10 +30403,10 @@ function createDefaultInstrumenter() {
  * @returns The currently set instrumenter
  */
 function getInstrumenter() {
-    if (!state$2.instrumenterImplementation) {
-        state$2.instrumenterImplementation = createDefaultInstrumenter();
+    if (!state$1.instrumenterImplementation) {
+        state$1.instrumenterImplementation = createDefaultInstrumenter();
     }
-    return state$2.instrumenterImplementation;
+    return state$1.instrumenterImplementation;
 }
 
 // Copyright (c) Microsoft Corporation.
@@ -29633,8 +30422,8 @@ function createTracingClient(options) {
     function startSpan(name, operationOptions, spanOptions) {
         const startSpanResult = getInstrumenter().startSpan(name, {
             ...spanOptions,
-            packageName: packageName,
-            packageVersion: packageVersion,
+            packageName,
+            packageVersion,
             tracingContext: operationOptions?.tracingOptions?.tracingContext,
         });
         let tracingContext = startSpanResult.tracingContext;
@@ -29654,7 +30443,7 @@ function createTracingClient(options) {
     async function withSpan(name, operationOptions, callback, spanOptions) {
         const { span, updatedOptions } = startSpan(name, operationOptions, spanOptions);
         try {
-            const result = await withContext(updatedOptions.tracingOptions.tracingContext, () => Promise.resolve(callback(updatedOptions, span)));
+            const result = await withContext(updatedOptions.tracingOptions.tracingContext, () => callback(updatedOptions, span));
             span.setStatus({ status: "success" });
             return result;
         }
@@ -29717,7 +30506,7 @@ const logger$j = credentialLogger("ChainedTokenCredential");
 /**
  * Enables multiple `TokenCredential` implementations to be tried in order until
  * one of the getToken methods returns an access token. For more information, see
- * [ChainedTokenCredential overview](https://aka.ms/azsdk/js/identity/credential-chains#use-chainedtokencredential-for-granularity).
+ * [ChainedTokenCredential overview](https://aka.ms/azsdk/js/identity/credential-chains#chainedtokencredential-overview).
  */
 class ChainedTokenCredential {
     _sources = [];
@@ -38610,7 +39399,7 @@ class HashUtils {
      * @param buffer
      */
     sha256(buffer) {
-        return crypto$1.createHash(Hash.SHA256).update(buffer).digest();
+        return crypto.createHash(Hash.SHA256).update(buffer).digest();
     }
 }
 
@@ -38643,7 +39432,7 @@ class PkceGenerator {
         const charArr = [];
         const maxNumber = 256 - (256 % CharSet.CV_CHARSET.length);
         while (charArr.length <= RANDOM_OCTET_SIZE) {
-            const byte = crypto$1.randomBytes(1)[0];
+            const byte = crypto.randomBytes(1)[0];
             if (byte >= maxNumber) {
                 /*
                  * Ignore this number to maintain randomness.
@@ -39984,7 +40773,7 @@ function requireJwa () {
 	if (hasRequiredJwa) return jwa;
 	hasRequiredJwa = 1;
 	var Buffer = requireSafeBuffer().Buffer;
-	var crypto = crypto$1;
+	var crypto$1 = crypto;
 	var formatEcdsa = requireEcdsaSigFormatter();
 	var util = require$$5;
 
@@ -39993,7 +40782,7 @@ function requireJwa () {
 	var MSG_INVALID_VERIFIER_KEY = 'key must be a string or a buffer';
 	var MSG_INVALID_SIGNER_KEY = 'key must be a string, a buffer or an object';
 
-	var supportsKeyObjects = typeof crypto.createPublicKey === 'function';
+	var supportsKeyObjects = typeof crypto$1.createPublicKey === 'function';
 	if (supportsKeyObjects) {
 	  MSG_INVALID_VERIFIER_KEY += ' or a KeyObject';
 	  MSG_INVALID_SECRET += 'or a KeyObject';
@@ -40111,19 +40900,19 @@ function requireJwa () {
 	  return function sign(thing, secret) {
 	    checkIsSecretKey(secret);
 	    thing = normalizeInput(thing);
-	    var hmac = crypto.createHmac('sha' + bits, secret);
+	    var hmac = crypto$1.createHmac('sha' + bits, secret);
 	    var sig = (hmac.update(thing), hmac.digest('base64'));
 	    return fromBase64(sig);
 	  }
 	}
 
 	var bufferEqual;
-	var timingSafeEqual = 'timingSafeEqual' in crypto ? function timingSafeEqual(a, b) {
+	var timingSafeEqual = 'timingSafeEqual' in crypto$1 ? function timingSafeEqual(a, b) {
 	  if (a.byteLength !== b.byteLength) {
 	    return false;
 	  }
 
-	  return crypto.timingSafeEqual(a, b)
+	  return crypto$1.timingSafeEqual(a, b)
 	} : function timingSafeEqual(a, b) {
 	  if (!bufferEqual) {
 	    bufferEqual = requireBufferEqualConstantTime();
@@ -40145,7 +40934,7 @@ function requireJwa () {
 	    thing = normalizeInput(thing);
 	    // Even though we are specifying "RSA" here, this works with ECDSA
 	    // keys as well.
-	    var signer = crypto.createSign('RSA-SHA' + bits);
+	    var signer = crypto$1.createSign('RSA-SHA' + bits);
 	    var sig = (signer.update(thing), signer.sign(privateKey, 'base64'));
 	    return fromBase64(sig);
 	  }
@@ -40156,7 +40945,7 @@ function requireJwa () {
 	    checkIsPublicKey(publicKey);
 	    thing = normalizeInput(thing);
 	    signature = toBase64(signature);
-	    var verifier = crypto.createVerify('RSA-SHA' + bits);
+	    var verifier = crypto$1.createVerify('RSA-SHA' + bits);
 	    verifier.update(thing);
 	    return verifier.verify(publicKey, signature, 'base64');
 	  }
@@ -40166,11 +40955,11 @@ function requireJwa () {
 	  return function sign(thing, privateKey) {
 	    checkIsPrivateKey(privateKey);
 	    thing = normalizeInput(thing);
-	    var signer = crypto.createSign('RSA-SHA' + bits);
+	    var signer = crypto$1.createSign('RSA-SHA' + bits);
 	    var sig = (signer.update(thing), signer.sign({
 	      key: privateKey,
-	      padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
-	      saltLength: crypto.constants.RSA_PSS_SALTLEN_DIGEST
+	      padding: crypto$1.constants.RSA_PKCS1_PSS_PADDING,
+	      saltLength: crypto$1.constants.RSA_PSS_SALTLEN_DIGEST
 	    }, 'base64'));
 	    return fromBase64(sig);
 	  }
@@ -40181,12 +40970,12 @@ function requireJwa () {
 	    checkIsPublicKey(publicKey);
 	    thing = normalizeInput(thing);
 	    signature = toBase64(signature);
-	    var verifier = crypto.createVerify('RSA-SHA' + bits);
+	    var verifier = crypto$1.createVerify('RSA-SHA' + bits);
 	    verifier.update(thing);
 	    return verifier.verify({
 	      key: publicKey,
-	      padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
-	      saltLength: crypto.constants.RSA_PSS_SALTLEN_DIGEST
+	      padding: crypto$1.constants.RSA_PKCS1_PSS_PADDING,
+	      saltLength: crypto$1.constants.RSA_PSS_SALTLEN_DIGEST
 	    }, signature, 'base64');
 	  }
 	}
@@ -41042,7 +41831,7 @@ function requireRe () {
 		createToken('GTLT', '((?:<|>)?=?)');
 
 		// Something like "2.*" or "1.2.x".
-		// Note that "x.x" is a valid xRange identifer, meaning "any version"
+		// Note that "x.x" is a valid xRange identifier, meaning "any version"
 		// Only the first item is strictly required.
 		createToken('XRANGEIDENTIFIERLOOSE', `${src[t.NUMERICIDENTIFIERLOOSE]}|x|X|\\*`);
 		createToken('XRANGEIDENTIFIER', `${src[t.NUMERICIDENTIFIER]}|x|X|\\*`);
@@ -41206,6 +41995,22 @@ function requireSemver$1 () {
 
 	const parseOptions = requireParseOptions();
 	const { compareIdentifiers } = requireIdentifiers();
+
+	const isPrereleaseIdentifier = (prerelease, identifier) => {
+	  const identifiers = identifier.split('.');
+	  if (identifiers.length > prerelease.length) {
+	    return false
+	  }
+
+	  for (let i = 0; i < identifiers.length; i++) {
+	    if (compareIdentifiers(prerelease[i], identifiers[i]) !== 0) {
+	      return false
+	    }
+	  }
+
+	  return true
+	};
+
 	class SemVer {
 	  constructor (version, options) {
 	    options = parseOptions(options);
@@ -41509,8 +42314,9 @@ function requireSemver$1 () {
 	          if (identifierBase === false) {
 	            prerelease = [identifier];
 	          }
-	          if (compareIdentifiers(this.prerelease[0], identifier) === 0) {
-	            if (isNaN(this.prerelease[1])) {
+	          if (isPrereleaseIdentifier(this.prerelease, identifier)) {
+	            const prereleaseBase = this.prerelease[identifier.split('.').length];
+	            if (isNaN(prereleaseBase)) {
 	              this.prerelease = prerelease;
 	            }
 	          } else {
@@ -42038,6 +42844,62 @@ function requireCoerce () {
 	return coerce_1;
 }
 
+var truncate_1;
+var hasRequiredTruncate;
+
+function requireTruncate () {
+	if (hasRequiredTruncate) return truncate_1;
+	hasRequiredTruncate = 1;
+
+	const parse = requireParse();
+	const constants = requireConstants();
+	const SemVer = requireSemver$1();
+
+	const truncate = (version, truncation, options) => {
+	  if (!constants.RELEASE_TYPES.includes(truncation)) {
+	    return null
+	  }
+
+	  const clonedVersion = cloneInputVersion(version, options);
+	  return clonedVersion && doTruncation(clonedVersion, truncation)
+	};
+
+	const cloneInputVersion = (version, options) => {
+	  const versionStringToParse = (
+	    version instanceof SemVer ? version.version : version
+	  );
+
+	  return parse(versionStringToParse, options)
+	};
+
+	const doTruncation = (version, truncation) => {
+	  if (isPrerelease(truncation)) {
+	    return version.version
+	  }
+
+	  version.prerelease = [];
+
+	  switch (truncation) {
+	    case 'major':
+	      version.minor = 0;
+	      version.patch = 0;
+	      break
+	    case 'minor':
+	      version.patch = 0;
+	      break
+	  }
+
+	  return version.format()
+	};
+
+	const isPrerelease = (type) => {
+	  return type.startsWith('pre')
+	};
+
+	truncate_1 = truncate;
+	return truncate_1;
+}
+
 var lrucache;
 var hasRequiredLrucache;
 
@@ -42193,6 +43055,9 @@ function requireRange () {
 	  }
 
 	  parseRange (range) {
+	    // strip build metadata so it can't bleed into the version
+	    range = range.replace(BUILDSTRIPRE, '');
+
 	    // memoize range parsing for performance.
 	    // this is a very hot path, and fully deterministic.
 	    const memoOpts =
@@ -42318,12 +43183,16 @@ function requireRange () {
 	const SemVer = requireSemver$1();
 	const {
 	  safeRe: re,
+	  src,
 	  t,
 	  comparatorTrimReplace,
 	  tildeTrimReplace,
 	  caretTrimReplace,
 	} = requireRe();
 	const { FLAG_INCLUDE_PRERELEASE, FLAG_LOOSE } = requireConstants();
+
+	// unbounded global build-metadata stripper used by parseRange
+	const BUILDSTRIPRE = new RegExp(src[t.BUILD], 'g');
 
 	const isNullSet = c => c.value === '<0.0.0-0';
 	const isAny = c => c.value === '';
@@ -42365,6 +43234,11 @@ function requireRange () {
 
 	const isX = id => !id || id.toLowerCase() === 'x' || id === '*';
 
+	const invalidXRangeOrder = (M, m, p) => (
+	  (isX(M) && !isX(m)) ||
+	  (isX(m) && p && !isX(p))
+	);
+
 	// ~, ~> --> * (any, kinda silly)
 	// ~2, ~2.x, ~2.x.x, ~>2, ~>2.x ~>2.x.x --> >=2.0.0 <3.0.0-0
 	// ~2.0, ~2.0.x, ~>2.0, ~>2.0.x --> >=2.0.0 <2.1.0-0
@@ -42382,6 +43256,10 @@ function requireRange () {
 
 	const replaceTilde = (comp, options) => {
 	  const r = options.loose ? re[t.TILDELOOSE] : re[t.TILDE];
+	  // if we're including prereleases in the match, then the lower bound is
+	  // -0, the lowest possible prerelease value, just like x-ranges and carets.
+	  // this keeps `~1.2` equivalent to the `1.2.x` x-range it's documented as.
+	  const z = options.includePrerelease ? '-0' : '';
 	  return comp.replace(r, (_, M, m, p, pr) => {
 	    debug('tilde', comp, _, M, m, p, pr);
 	    let ret;
@@ -42389,10 +43267,10 @@ function requireRange () {
 	    if (isX(M)) {
 	      ret = '';
 	    } else if (isX(m)) {
-	      ret = `>=${M}.0.0 <${+M + 1}.0.0-0`;
+	      ret = `>=${M}.0.0${z} <${+M + 1}.0.0-0`;
 	    } else if (isX(p)) {
 	      // ~1.2 == >=1.2.0 <1.3.0-0
-	      ret = `>=${M}.${m}.0 <${M}.${+m + 1}.0-0`;
+	      ret = `>=${M}.${m}.0${z} <${M}.${+m + 1}.0-0`;
 	    } else if (pr) {
 	      debug('replaceTilde pr', pr);
 	      ret = `>=${M}.${m}.${p}-${pr
@@ -42461,10 +43339,10 @@ function requireRange () {
 	      if (M === '0') {
 	        if (m === '0') {
 	          ret = `>=${M}.${m}.${p
-	          }${z} <${M}.${m}.${+p + 1}-0`;
+	          } <${M}.${m}.${+p + 1}-0`;
 	        } else {
 	          ret = `>=${M}.${m}.${p
-	          }${z} <${M}.${+m + 1}.0-0`;
+	          } <${M}.${+m + 1}.0-0`;
 	        }
 	      } else {
 	        ret = `>=${M}.${m}.${p
@@ -42490,6 +43368,10 @@ function requireRange () {
 	  const r = options.loose ? re[t.XRANGELOOSE] : re[t.XRANGE];
 	  return comp.replace(r, (ret, gtlt, M, m, p, pr) => {
 	    debug('xRange', comp, ret, gtlt, M, m, p, pr);
+	    if (invalidXRangeOrder(M, m, p)) {
+	      return comp
+	    }
+
 	    const xM = isX(M);
 	    const xm = xM || isX(m);
 	    const xp = xm || isX(p);
@@ -43376,7 +44258,7 @@ function requireSubset () {
 	        if (higher === c && higher !== gt) {
 	          return false
 	        }
-	      } else if (gt.operator === '>=' && !satisfies(gt.semver, String(c), options)) {
+	      } else if (gt.operator === '>=' && !c.test(gt.semver)) {
 	        return false
 	      }
 	    }
@@ -43394,7 +44276,7 @@ function requireSubset () {
 	        if (lower === c && lower !== lt) {
 	          return false
 	        }
-	      } else if (lt.operator === '<=' && !satisfies(lt.semver, String(c), options)) {
+	      } else if (lt.operator === '<=' && !c.test(lt.semver)) {
 	        return false
 	      }
 	    }
@@ -43487,6 +44369,7 @@ function requireSemver () {
 	const lte = requireLte();
 	const cmp = requireCmp();
 	const coerce = requireCoerce();
+	const truncate = requireTruncate();
 	const Comparator = requireComparator();
 	const Range = requireRange();
 	const satisfies = requireSatisfies();
@@ -43525,6 +44408,7 @@ function requireSemver () {
 	  lte,
 	  cmp,
 	  coerce,
+	  truncate,
 	  Comparator,
 	  Range,
 	  satisfies,
@@ -43676,7 +44560,7 @@ function requireVerify () {
 	const validateAsymmetricKey = requireValidateAsymmetricKey();
 	const PS_SUPPORTED = requirePsSupported();
 	const jws = requireJws();
-	const {KeyObject, createSecretKey, createPublicKey} = crypto$1;
+	const {KeyObject, createSecretKey, createPublicKey} = crypto;
 
 	const PUB_KEY_ALGS = ['RS256', 'RS384', 'RS512'];
 	const EC_KEY_ALGS = ['ES256', 'ES384', 'ES512'];
@@ -45701,7 +46585,7 @@ function requireSign () {
 	const isPlainObject = requireLodash_isplainobject();
 	const isString = requireLodash_isstring();
 	const once = requireLodash_once();
-	const { KeyObject, createSecretKey, createPrivateKey } = crypto$1;
+	const { KeyObject, createSecretKey, createPrivateKey } = crypto;
 
 	const SUPPORTED_ALGS = ['RS256', 'RS384', 'RS512', 'ES256', 'ES384', 'ES512', 'HS256', 'HS384', 'HS512', 'none'];
 	if (PS_SUPPORTED) {
@@ -49854,31 +50738,8 @@ function isError$1(e) {
  * @returns RFC4122 v4 UUID.
  */
 function randomUUID() {
-    return crypto.randomUUID();
+    return globalThis.crypto.randomUUID();
 }
-
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
-/**
- * A constant that indicates whether the environment the code is running is a Web Browser.
- */
-// eslint-disable-next-line @azure/azure-sdk/ts-no-window
-/**
- * A constant that indicates whether the environment the code is running is Deno.
- */
-typeof Deno !== "undefined" &&
-    typeof Deno.version !== "undefined" &&
-    typeof Deno.version.deno !== "undefined";
-/**
- * A constant that indicates whether the environment the code is running is Bun.sh.
- */
-typeof Bun !== "undefined" && typeof Bun.version !== "undefined";
-/**
- * A constant that indicates whether the environment the code is running is a Node.js compatible environment.
- */
-const isNodeLike$1 = typeof globalThis.process !== "undefined" &&
-    Boolean(globalThis.process.version) &&
-    Boolean(globalThis.process.versions?.node);
 
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
@@ -49888,13 +50749,16 @@ const isNodeLike$1 = typeof globalThis.process !== "undefined" &&
  * @param format - the format we use to encode the byte
  * @returns a string of the encoded string
  */
+function uint8ArrayToString$1(bytes, format) {
+    return Buffer.from(bytes).toString(format);
+}
 /**
  * The helper that transforms string to specific character encoded bytes array.
  * @param value - the string to be converted
  * @param format - the format we use to decode the value
  * @returns a uint8array
  */
-function stringToUint8Array(value, format) {
+function stringToUint8Array$1(value, format) {
     return Buffer.from(value, format);
 }
 
@@ -49972,13 +50836,13 @@ class Sanitizer {
                     message: value.message,
                 };
             }
-            if (key === "headers") {
+            if (key === "headers" && isObject(value)) {
                 return this.sanitizeHeaders(value);
             }
-            else if (key === "url") {
+            else if (key === "url" && typeof value === "string") {
                 return this.sanitizeUrl(value);
             }
-            else if (key === "query") {
+            else if (key === "query" && isObject(value)) {
                 return this.sanitizeQuery(value);
             }
             else if (key === "body") {
@@ -50053,20 +50917,30 @@ class Sanitizer {
 }
 
 // Copyright (c) Microsoft Corporation.
-// Licensed under the MIT license.
+// Licensed under the MIT License.
 /**
  * This error is thrown when an asynchronous operation has been aborted.
  * Check for this error by testing the `name` that the name property of the
  * error matches `"AbortError"`.
  *
  * @example
- * ```ts
+ * ```ts snippet:AbortErrorSample
+ * import { AbortError } from "@azure/abort-controller";
+ *
+ * async function doAsyncWork(options: { abortSignal: AbortSignal }): Promise<void> {
+ *   if (options.abortSignal.aborted) {
+ *     throw new AbortError();
+ *   }
+ *
+ *   // do async work
+ * }
+ *
  * const controller = new AbortController();
  * controller.abort();
  * try {
- *   doAsyncWork(controller.signal)
+ *   doAsyncWork({ abortSignal: controller.signal });
  * } catch (e) {
- *   if (e.name === 'AbortError') {
+ *   if (e instanceof Error && e.name === "AbortError") {
  *     // handle abort error here.
  *   }
  * }
@@ -50194,16 +51068,26 @@ function isError(e) {
 }
 /**
  * A constant that indicates whether the environment the code is running is a Node.js compatible environment.
- *
- * @deprecated
- *
- * Use `isNodeLike` instead.
- */
-const isNode = isNodeLike$1;
-/**
- * A constant that indicates whether the environment the code is running is a Node.js compatible environment.
  */
 const isNodeLike = isNodeLike$1;
+/**
+ * The helper that transforms bytes with specific character encoding into string
+ * @param bytes - the uint8array bytes
+ * @param format - the format we use to encode the byte
+ * @returns a string of the encoded string
+ */
+function uint8ArrayToString(bytes, format) {
+    return uint8ArrayToString$1(bytes, format);
+}
+/**
+ * The helper that transforms string to specific character encoded bytes array.
+ * @param value - the string to be converted
+ * @param format - the format we use to decode the value
+ * @returns a uint8array
+ */
+function stringToUint8Array(value, format) {
+    return stringToUint8Array$1(value, format);
+}
 
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
@@ -50234,19 +51118,6 @@ function ensureValidMsalToken(scopes, msalToken, getTokenOptions) {
     if (!msalToken.accessToken) {
         throw error(`Response had no "accessToken" property.`);
     }
-}
-/**
- * Returns the authority host from either the options bag or the AZURE_AUTHORITY_HOST environment variable.
- *
- * Defaults to {@link DefaultAuthorityHost}.
- * @internal
- */
-function getAuthorityHost(options) {
-    let authorityHost = options?.authorityHost;
-    if (!authorityHost && isNodeLike) {
-        authorityHost = process.env.AZURE_AUTHORITY_HOST;
-    }
-    return authorityHost ?? DefaultAuthorityHost;
 }
 /**
  * Generates a valid authority by combining a host with a tenantId.
@@ -50284,7 +51155,7 @@ function getKnownAuthorities(tenantId, authorityHost, disableInstanceDiscovery) 
  * @param credLogger - The logger of the credential.
  * @internal
  */
-const defaultLoggerCallback = (credLogger, platform = isNode ? "Node" : "Browser") => (level, message, containsPii) => {
+const defaultLoggerCallback = (credLogger, platform = "Node" ) => (level, message, containsPii) => {
     if (containsPii) {
         return;
     }
@@ -50355,7 +51226,12 @@ function handleMsalError(scopes, error, getTokenOptions) {
         logger$i.info(formatError(scopes, `Error from the native broker: ${error.message} with status code: ${error.statusCode}`));
         return error;
     }
-    return new AuthenticationRequiredError({ scopes, getTokenOptions, message: error.message });
+    return new AuthenticationRequiredError({
+        scopes,
+        getTokenOptions,
+        message: error.message,
+        cause: error,
+    });
 }
 // transformations
 function publicToMsal(account) {
@@ -50591,6 +51467,16 @@ class AbortError extends Error {
 function normalizeName(name) {
     return name.toLowerCase();
 }
+/**
+ * Removes CR and LF characters from a header value to prevent obs-fold
+ * (line folding) sequences, as forbidden by RFC 7230 §3.2.4.
+ * @param value - The header value to sanitize.
+ */
+function normalizeValue(value) {
+    return String(value)
+        .trim()
+        .replace(/[\r\n]/g, "");
+}
 function* headerIterator(map) {
     for (const entry of map.values()) {
         yield [entry.name, entry.value];
@@ -50613,7 +51499,7 @@ class HttpHeadersImpl {
      * @param value - The value of the header to set.
      */
     set(name, value) {
-        this._headersMap.set(normalizeName(name), { name, value: String(value).trim() });
+        this._headersMap.set(normalizeName(name), { name, value: normalizeValue(value) });
     }
     /**
      * Get the header value for the provided header name, or undefined if no header exists in this
@@ -51188,9 +52074,6 @@ class NodeHttpClient {
                 body = uploadReportStream;
             }
             const res = await this.makeRequest(request, abortController, body);
-            if (timeoutId !== undefined) {
-                clearTimeout(timeoutId);
-            }
             const headers = getResponseHeaders(res);
             const status = res.statusCode ?? 0;
             const response = {
@@ -51228,6 +52111,9 @@ class NodeHttpClient {
             return response;
         }
         finally {
+            if (timeoutId !== undefined) {
+                clearTimeout(timeoutId);
+            }
             // clean up event listener
             if (request.abortSignal && abortListener) {
                 let uploadStreamDone = Promise.resolve();
@@ -51285,7 +52171,9 @@ class NodeHttpClient {
                     req.end(body);
                 }
                 else if (isArrayBuffer(body)) {
-                    req.end(ArrayBuffer.isView(body) ? Buffer.from(body.buffer) : Buffer.from(body));
+                    req.end(ArrayBuffer.isView(body)
+                        ? Buffer.from(body.buffer, body.byteOffset, body.byteLength)
+                        : Buffer.from(body));
                 }
                 else {
                     logger$h.error("Unrecognized body type", body);
@@ -51456,7 +52344,7 @@ function logPolicy$1(options = {}) {
             logger(`Request: ${sanitizer.sanitize(request)}`);
             const response = await next(request);
             logger(`Response status code: ${response.status}`);
-            logger(`Headers: ${sanitizer.sanitize(response.headers)}`);
+            logger(`Headers: ${sanitizer.sanitize({ headers: response.headers })}`);
             return response;
         },
     };
@@ -51464,90 +52352,7 @@ function logPolicy$1(options = {}) {
 
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
-/**
- * The programmatic identifier of the redirectPolicy.
- */
-const redirectPolicyName = "redirectPolicy";
-/**
- * Methods that are allowed to follow redirects 301 and 302
- */
-const allowedRedirect = ["GET", "HEAD"];
-/**
- * A policy to follow Location headers from the server in order
- * to support server-side redirection.
- * In the browser, this policy is not used.
- * @param options - Options to control policy behavior.
- */
-function redirectPolicy$1(options = {}) {
-    const { maxRetries = 20, allowCrossOriginRedirects = false } = options;
-    return {
-        name: redirectPolicyName,
-        async sendRequest(request, next) {
-            const response = await next(request);
-            return handleRedirect(next, response, maxRetries, allowCrossOriginRedirects);
-        },
-    };
-}
-async function handleRedirect(next, response, maxRetries, allowCrossOriginRedirects, currentRetries = 0) {
-    const { request, status, headers } = response;
-    const locationHeader = headers.get("location");
-    if (locationHeader &&
-        (status === 300 ||
-            (status === 301 && allowedRedirect.includes(request.method)) ||
-            (status === 302 && allowedRedirect.includes(request.method)) ||
-            (status === 303 && request.method === "POST") ||
-            status === 307) &&
-        currentRetries < maxRetries) {
-        const url = new URL(locationHeader, request.url);
-        // Only follow redirects to the same origin by default.
-        if (!allowCrossOriginRedirects) {
-            const originalUrl = new URL(request.url);
-            if (url.origin !== originalUrl.origin) {
-                logger$h.verbose(`Skipping cross-origin redirect from ${originalUrl.origin} to ${url.origin}.`);
-                return response;
-            }
-        }
-        request.url = url.toString();
-        // POST request with Status code 303 should be converted into a
-        // redirected GET request if the redirect url is present in the location header
-        if (status === 303) {
-            request.method = "GET";
-            request.headers.delete("Content-Length");
-            delete request.body;
-        }
-        request.headers.delete("Authorization");
-        const res = await next(request);
-        return handleRedirect(next, res, maxRetries, allowCrossOriginRedirects, currentRetries + 1);
-    }
-    return response;
-}
-
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
 const DEFAULT_RETRY_POLICY_COUNT$1 = 3;
-
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
-/**
- * The programmatic identifier of the decompressResponsePolicy.
- */
-const decompressResponsePolicyName = "decompressResponsePolicy";
-/**
- * A policy to enable response decompression according to Accept-Encoding header
- * https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Encoding
- */
-function decompressResponsePolicy$1() {
-    return {
-        name: decompressResponsePolicyName,
-        async sendRequest(request, next) {
-            // HEAD requests have no body
-            if (request.method !== "HEAD") {
-                request.headers.set("Accept-Encoding", "gzip,deflate");
-            }
-            return next(request);
-        },
-    };
-}
 
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
@@ -51760,7 +52565,6 @@ function retryPolicy$1(strategies, options = { maxRetries: DEFAULT_RETRY_POLICY_
             let retryCount = -1;
             retryRequest: while (true) {
                 retryCount += 1;
-                response = undefined;
                 responseError = undefined;
                 try {
                     logger.info(`Retry ${retryCount}: Attempting to send request`, request.requestId);
@@ -51772,11 +52576,11 @@ function retryPolicy$1(strategies, options = { maxRetries: DEFAULT_RETRY_POLICY_
                     // RestErrors are valid targets for the retry strategies.
                     // If none of the retry strategies can work with them, they will be thrown later in this policy.
                     // If the received error is not a RestError, it is immediately thrown.
-                    responseError = e;
-                    if (!e || responseError.name !== "RestError") {
+                    if (!isRestError$1(e)) {
                         throw e;
                     }
-                    response = responseError.response;
+                    responseError = e;
+                    response = e.response;
                 }
                 if (request.abortSignal?.aborted) {
                     logger.error(`Retry ${retryCount}: Request aborted.`);
@@ -51864,17 +52668,35 @@ function defaultRetryPolicy$1(options = {}) {
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 /**
+ * If the request body is a native FormData, convert it to our FormDataMap
+ * representation and clear the body. Node.js's HTTP stack doesn't handle
+ * FormData natively, so the pipeline must serialize it later.
+ *
+ * @internal
+ */
+function convertBodyToFormDataMap(body) {
+    if (typeof FormData !== "undefined" && body instanceof FormData) {
+        const formDataMap = {};
+        for (const [key, value] of body.entries()) {
+            const existing = formDataMap[key];
+            if (Array.isArray(existing)) {
+                existing.push(value);
+            }
+            else {
+                formDataMap[key] = existing !== undefined ? [existing, value] : [value];
+            }
+        }
+        return formDataMap;
+    }
+    return undefined;
+}
+
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+/**
  * The programmatic identifier of the formDataPolicy.
  */
 const formDataPolicyName = "formDataPolicy";
-function formDataToFormDataMap(formData) {
-    const formDataMap = {};
-    for (const [key, value] of formData.entries()) {
-        formDataMap[key] ??= [];
-        formDataMap[key].push(value);
-    }
-    return formDataMap;
-}
 /**
  * A policy that encodes FormData on the request into the body.
  */
@@ -51882,8 +52704,9 @@ function formDataPolicy$1() {
     return {
         name: formDataPolicyName,
         async sendRequest(request, next) {
-            if (isNodeLike$1 && typeof FormData !== "undefined" && request.body instanceof FormData) {
-                request.formData = formDataToFormDataMap(request.body);
+            const converted = convertBodyToFormDataMap(request.body);
+            if (converted) {
+                request.formData = converted;
                 request.body = undefined;
             }
             if (request.formData) {
@@ -51931,7 +52754,7 @@ async function prepareFormData(formData, request) {
                     headers: createHttpHeaders$1({
                         "Content-Disposition": `form-data; name="${fieldName}"`,
                     }),
-                    body: stringToUint8Array(value, "utf-8"),
+                    body: stringToUint8Array$1(value, "utf-8"),
                 });
             }
             else if (value === undefined || value === null || typeof value !== "object") {
@@ -51952,6 +52775,50 @@ async function prepareFormData(formData, request) {
         }
     }
     request.multipartBody = { parts };
+}
+
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+/**
+ * Name of the Agent Policy
+ */
+const agentPolicyName = "agentPolicy";
+/**
+ * Gets a pipeline policy that sets http.agent
+ */
+function agentPolicy$1(agent) {
+    return {
+        name: agentPolicyName,
+        sendRequest: async (req, next) => {
+            // Users may define an agent on the request, honor it over the client level one
+            if (!req.agent) {
+                req.agent = agent;
+            }
+            return next(req);
+        },
+    };
+}
+
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+/**
+ * Name of the TLS Policy
+ */
+const tlsPolicyName = "tlsPolicy";
+/**
+ * Gets a pipeline policy that adds the client certificate to the HttpClient agent for authentication.
+ */
+function tlsPolicy$1(tlsSettings) {
+    return {
+        name: tlsPolicyName,
+        sendRequest: async (req, next) => {
+            // Users may define a request tlsSettings, honor those over the client level one
+            if (!req.tlsSettings) {
+                req.tlsSettings = tlsSettings;
+            }
+            return next(req);
+        },
+    };
 }
 
 var dist$2 = {};
@@ -53403,10 +54270,10 @@ function requireDist$1 () {
 	dist$2.HttpsProxyAgent = void 0;
 	const net = __importStar(require$$0$7);
 	const tls = __importStar(require$$1);
-	const assert_1 = __importDefault(require$$5$6);
+	const assert_1 = __importDefault(require$$5$5);
 	const debug_1 = __importDefault(requireSrc());
 	const agent_base_1 = requireDist$2();
-	const url_1 = require$$5$7;
+	const url_1 = require$$5$6;
 	const parse_proxy_response_1 = requireParseProxyResponse();
 	const debug = (0, debug_1.default)('https-proxy-agent');
 	const setServernameFromNonIpHost = (options) => {
@@ -53597,7 +54464,7 @@ function requireDist () {
 	const debug_1 = __importDefault(requireSrc());
 	const events_1 = events__default;
 	const agent_base_1 = requireDist$2();
-	const url_1 = require$$5$7;
+	const url_1 = require$$5$6;
 	const debug = (0, debug_1.default)('http-proxy-agent');
 	/**
 	 * The `HttpProxyAgent` implements an HTTP Agent subclass that connects
@@ -53835,16 +54702,15 @@ function setProxyAgentOnRequest(request, cachedAgents, proxyUrl) {
     if (request.tlsSettings) {
         logger$h.warning("TLS settings are not supported in combination with custom Proxy, certificates provided to the client will be ignored.");
     }
-    const headers = request.headers.toJSON();
     if (isInsecure) {
         if (!cachedAgents.httpProxyAgent) {
-            cachedAgents.httpProxyAgent = new distExports.HttpProxyAgent(proxyUrl, { headers });
+            cachedAgents.httpProxyAgent = new distExports.HttpProxyAgent(proxyUrl);
         }
         request.agent = cachedAgents.httpProxyAgent;
     }
     else {
         if (!cachedAgents.httpsProxyAgent) {
-            cachedAgents.httpsProxyAgent = new distExports$1.HttpsProxyAgent(proxyUrl, { headers });
+            cachedAgents.httpsProxyAgent = new distExports$1.HttpsProxyAgent(proxyUrl);
         }
         request.agent = cachedAgents.httpsProxyAgent;
     }
@@ -53883,21 +54749,22 @@ function proxyPolicy$1(proxySettings, options) {
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 /**
- * Name of the Agent Policy
+ * The programmatic identifier of the decompressResponsePolicy.
  */
-const agentPolicyName = "agentPolicy";
+const decompressResponsePolicyName = "decompressResponsePolicy";
 /**
- * Gets a pipeline policy that sets http.agent
+ * A policy to enable response decompression according to Accept-Encoding header
+ * https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Encoding
  */
-function agentPolicy$1(agent) {
+function decompressResponsePolicy$1() {
     return {
-        name: agentPolicyName,
-        sendRequest: async (req, next) => {
-            // Users may define an agent on the request, honor it over the client level one
-            if (!req.agent) {
-                req.agent = agent;
+        name: decompressResponsePolicyName,
+        async sendRequest(request, next) {
+            // HEAD requests have no body
+            if (request.method !== "HEAD") {
+                request.headers.set("Accept-Encoding", "gzip,deflate");
             }
-            return next(req);
+            return next(request);
         },
     };
 }
@@ -53905,29 +54772,67 @@ function agentPolicy$1(agent) {
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 /**
- * Name of the TLS Policy
+ * The programmatic identifier of the redirectPolicy.
  */
-const tlsPolicyName = "tlsPolicy";
+const redirectPolicyName = "redirectPolicy";
 /**
- * Gets a pipeline policy that adds the client certificate to the HttpClient agent for authentication.
+ * Methods that are allowed to follow redirects 301 and 302
  */
-function tlsPolicy$1(tlsSettings) {
+const allowedRedirect = ["GET", "HEAD"];
+/**
+ * A policy to follow Location headers from the server in order
+ * to support server-side redirection.
+ * In the browser, this policy is not used.
+ * @param options - Options to control policy behavior.
+ */
+function redirectPolicy$1(options = {}) {
+    const { maxRetries = 20, allowCrossOriginRedirects = false } = options;
     return {
-        name: tlsPolicyName,
-        sendRequest: async (req, next) => {
-            // Users may define a request tlsSettings, honor those over the client level one
-            if (!req.tlsSettings) {
-                req.tlsSettings = tlsSettings;
-            }
-            return next(req);
+        name: redirectPolicyName,
+        async sendRequest(request, next) {
+            const response = await next(request);
+            return handleRedirect(next, response, maxRetries, allowCrossOriginRedirects);
         },
     };
+}
+async function handleRedirect(next, response, maxRetries, allowCrossOriginRedirects, currentRetries = 0) {
+    const { request, status, headers } = response;
+    const locationHeader = headers.get("location");
+    if (locationHeader &&
+        (status === 300 ||
+            (status === 301 && allowedRedirect.includes(request.method)) ||
+            (status === 302 && allowedRedirect.includes(request.method)) ||
+            (status === 303 && request.method === "POST") ||
+            status === 307) &&
+        currentRetries < maxRetries) {
+        const url = new URL(locationHeader, request.url);
+        // Only follow redirects to the same origin by default.
+        if (!allowCrossOriginRedirects) {
+            const originalUrl = new URL(request.url);
+            if (url.origin !== originalUrl.origin) {
+                logger$h.verbose(`Skipping cross-origin redirect from ${originalUrl.origin} to ${url.origin}.`);
+                return response;
+            }
+        }
+        request.url = url.toString();
+        // POST request with Status code 303 should be converted into a
+        // redirected GET request if the redirect url is present in the location header
+        if (status === 303) {
+            request.method = "GET";
+            request.headers.delete("Content-Length");
+            delete request.body;
+        }
+        request.headers.delete("Authorization");
+        const res = await next(request);
+        return handleRedirect(next, res, maxRetries, allowCrossOriginRedirects, currentRetries + 1);
+    }
+    return response;
 }
 
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 function isBlob(x) {
-    return typeof x.stream === "function";
+    return x instanceof Blob;
 }
 
 // Copyright (c) Microsoft Corporation.
@@ -54036,20 +54941,24 @@ function getTotalLength(sources) {
 }
 async function buildRequestBody(request, parts, boundary) {
     const sources = [
-        stringToUint8Array(`--${boundary}`, "utf-8"),
+        stringToUint8Array$1(`--${boundary}`, "utf-8"),
         ...parts.flatMap((part) => [
-            stringToUint8Array("\r\n", "utf-8"),
-            stringToUint8Array(encodeHeaders(part.headers), "utf-8"),
-            stringToUint8Array("\r\n", "utf-8"),
+            stringToUint8Array$1("\r\n", "utf-8"),
+            stringToUint8Array$1(encodeHeaders(part.headers), "utf-8"),
+            stringToUint8Array$1("\r\n", "utf-8"),
             part.body,
-            stringToUint8Array(`\r\n--${boundary}`, "utf-8"),
+            stringToUint8Array$1(`\r\n--${boundary}`, "utf-8"),
         ]),
-        stringToUint8Array("--\r\n\r\n", "utf-8"),
+        stringToUint8Array$1("--\r\n\r\n", "utf-8"),
     ];
     const contentLength = getTotalLength(sources);
     if (contentLength) {
         request.headers.set("Content-Length", contentLength);
     }
+    // The public BodyPart.body type uses Uint8Array (= Uint8Array<ArrayBufferLike>) for
+    // backward compatibility. Internally, concat requires Uint8Array<ArrayBuffer> to ensure
+    // SharedArrayBuffer-backed arrays don't flow into Blob construction. In practice, HTTP
+    // request bodies are always ArrayBuffer-backed, so this narrowing is safe.
     request.body = await concat(sources);
 }
 /**
@@ -54157,22 +55066,21 @@ function getHeaderName() {
 async function setPlatformSpecificData(map) {
     if (process$1 && process$1.versions) {
         const osInfo = `${os$1.type()} ${os$1.release()}; ${os$1.arch()}`;
-        const versions = process$1.versions;
-        if (versions.bun) {
-            map.set("Bun", `${versions.bun} (${osInfo})`);
+        if (process$1.versions.bun) {
+            map.set("Bun", `${process$1.versions.bun} (${osInfo})`);
         }
-        else if (versions.deno) {
-            map.set("Deno", `${versions.deno} (${osInfo})`);
+        else if (process$1.versions.deno) {
+            map.set("Deno", `${process$1.versions.deno} (${osInfo})`);
         }
-        else if (versions.node) {
-            map.set("Node", `${versions.node} (${osInfo})`);
+        else if (process$1.versions.node) {
+            map.set("Node", `${process$1.versions.node} (${osInfo})`);
         }
     }
 }
 
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
-const SDK_VERSION = "1.22.3";
+const SDK_VERSION = "1.25.0";
 const DEFAULT_RETRY_POLICY_COUNT = 3;
 
 // Copyright (c) Microsoft Corporation.
@@ -54531,7 +55439,9 @@ function wrapAbortSignalLike(abortSignalLike) {
         return { abortSignal: abortSignalLike };
     }
     if (abortSignalLike.aborted) {
-        return { abortSignal: AbortSignal.abort(abortSignalLike.reason) };
+        return {
+            abortSignal: AbortSignal.abort("reason" in abortSignalLike ? abortSignalLike.reason : undefined),
+        };
     }
     const controller = new AbortController();
     let needsCleanup = true;
@@ -54542,7 +55452,7 @@ function wrapAbortSignalLike(abortSignalLike) {
         }
     }
     function listener() {
-        controller.abort(abortSignalLike.reason);
+        controller.abort("reason" in abortSignalLike ? abortSignalLike.reason : undefined);
         cleanup();
     }
     abortSignalLike.addEventListener("abort", listener);
@@ -54585,7 +55495,7 @@ function wrapAbortSignalLikePolicy() {
  */
 function createPipelineFromOptions(options) {
     const pipeline = createEmptyPipeline();
-    if (isNodeLike) {
+    {
         if (options.agent) {
             pipeline.addPolicy(agentPolicy(options.agent));
         }
@@ -54607,7 +55517,7 @@ function createPipelineFromOptions(options) {
     pipeline.addPolicy(tracingPolicy({ ...options.userAgentOptions, ...options.loggingOptions }), {
         afterPhase: "Retry",
     });
-    if (isNodeLike) {
+    {
         // Both XHR and Fetch expect to handle redirects automatically,
         // so only include this policy when we're in Node.
         pipeline.addPolicy(redirectPolicy(options.redirectOptions), { afterPhase: "Retry" });
@@ -54765,13 +55675,16 @@ function createTokenCycler(credential, tokenCyclerOptions) {
          * window and not already refreshing)
          */
         get shouldRefresh() {
+            if (token === null) {
+                return true;
+            }
             if (cycler.isRefreshing) {
                 return false;
             }
-            if (token?.refreshAfterTimestamp && token.refreshAfterTimestamp < Date.now()) {
+            if (token.refreshAfterTimestamp && token.refreshAfterTimestamp < Date.now()) {
                 return true;
             }
-            return (token?.expiresOnTimestamp ?? 0) - options.refreshWindowInMs < Date.now();
+            return token.expiresOnTimestamp - options.refreshWindowInMs < Date.now();
         },
         /**
          * Produces true if the cycler MUST refresh (null or nearly-expired
@@ -54998,7 +55911,7 @@ function bearerTokenAuthenticationPolicy(options) {
                     }
                     // If we get another CAE Claim, we will handle it by default and return whatever value we receive for this
                     if (isChallengeResponse(response)) {
-                        claims = getCaeChallengeClaims(response.headers.get("WWW-Authenticate"));
+                        claims = getCaeChallengeClaims(response.headers.get("WWW-Authenticate") ?? "");
                         if (claims) {
                             let parsedClaim;
                             try {
@@ -55075,28 +55988,28 @@ function getCaeChallengeClaims(challenges) {
     return parsedChallenges.find((x) => x.scheme === "Bearer" && x.params.claims && x.params.error === "insufficient_claims")?.params.claims;
 }
 
-var state$1 = {};
+var stateCjs = {};
 
-var hasRequiredState;
+var hasRequiredStateCjs;
 
-function requireState () {
-	if (hasRequiredState) return state$1;
-	hasRequiredState = 1;
+function requireStateCjs () {
+	if (hasRequiredStateCjs) return stateCjs;
+	hasRequiredStateCjs = 1;
 	// Copyright (c) Microsoft Corporation.
 	// Licensed under the MIT License.
-	Object.defineProperty(state$1, "__esModule", { value: true });
-	state$1.state = void 0;
+	Object.defineProperty(stateCjs, "__esModule", { value: true });
+	stateCjs.state = void 0;
 	/**
 	 * Holds the singleton operationRequestMap, to be shared across CJS and ESM imports.
 	 */
-	state$1.state = {
+	stateCjs.state = {
 	    operationRequestMap: new WeakMap(),
 	};
 	
-	return state$1;
+	return stateCjs;
 }
 
-var stateExports = requireState();
+var stateCjsExports = requireStateCjs();
 
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
@@ -55105,7 +56018,7 @@ var stateExports = requireState();
 /**
  * Defines the shared state between CJS and ESM by re-exporting the CJS state.
  */
-const state = stateExports.state;
+const state = stateCjsExports.state;
 
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
@@ -55148,9 +56061,8 @@ function getOperationArgumentValueFromParameter(operationArguments, parameter, f
         if (parameterMapper.required) {
             value = {};
         }
-        for (const propertyName in parameterPath) {
+        for (const [propertyName, propertyPath] of Object.entries(parameterPath)) {
             const propertyMapper = parameterMapper.type.modelProperties[propertyName];
-            const propertyPath = parameterPath[propertyName];
             const propertyValue = getOperationArgumentValueFromParameter(operationArguments, {
                 parameterPath: propertyPath,
                 mapper: propertyMapper,
@@ -55159,7 +56071,12 @@ function getOperationArgumentValueFromParameter(operationArguments, parameter, f
                 if (!value) {
                     value = {};
                 }
-                value[propertyName] = propertyValue;
+                Object.defineProperty(value, propertyName, {
+                    value: propertyValue,
+                    enumerable: true,
+                    configurable: true,
+                    writable: true,
+                });
             }
         }
     }
@@ -55434,8 +56351,7 @@ async function parse(jsonContentTypes, xmlContentTypes, operationResponse, opts,
  */
 function getStreamingResponseStatusCodes(operationSpec) {
     const result = new Set();
-    for (const statusCode in operationSpec.responses) {
-        const operationResponse = operationSpec.responses[statusCode];
+    for (const [statusCode, operationResponse] of Object.entries(operationSpec.responses)) {
         if (operationResponse.bodyMapper &&
             operationResponse.bodyMapper.type.name === MapperTypeNames.Stream) {
             result.add(Number(statusCode));
@@ -55478,7 +56394,7 @@ function serializationPolicy(options = {}) {
     const stringifyXML = options.stringifyXML;
     return {
         name: serializationPolicyName,
-        async sendRequest(request, next) {
+        sendRequest(request, next) {
             const operationInfo = getOperationRequestInfo(request);
             const operationSpec = operationInfo?.operationSpec;
             const operationArguments = operationInfo?.operationArguments;
@@ -55571,7 +56487,7 @@ function serializeRequestBody(request, operationArguments, operationSpec, string
             }
         }
         catch (error) {
-            throw new Error(`Error "${error.message}" occurred in serializing the payload - ${JSON.stringify(serializedName, undefined, "  ")}.`);
+            throw new Error(`Error "${error.message}" occurred in serializing the payload - ${JSON.stringify(serializedName, undefined, "  ")}.`, { cause: error });
         }
     }
     else if (operationSpec.formDataParameters && operationSpec.formDataParameters.length > 0) {
@@ -55735,7 +56651,8 @@ function appendPath(url, pathToAppend) {
     else {
         newPath = newPath + pathToAppend;
     }
-    parsedUrl.pathname = newPath;
+    // Use Object.assign to bypass react-native's incorrect readonly URL.pathname declaration
+    Object.assign(parsedUrl, { pathname: newPath });
     return parsedUrl.toString();
 }
 function calculateQueryParameters(operationSpec, operationArguments, fallbackObject) {
@@ -55934,7 +56851,7 @@ class ServiceClient {
     /**
      * Send the provided httpRequest.
      */
-    async sendRequest(request) {
+    sendRequest(request) {
         return this.pipeline.sendRequest(this._httpClient, request);
     }
     /**
@@ -56037,7 +56954,7 @@ function getCredentialScopes(options) {
     if (options.baseUri) {
         return `${options.baseUri}/.default`;
     }
-    if (options.credential && !options.credentialScopes) {
+    if (options.credential) {
         throw new Error(`When using credentials, the ServiceClientOptions must contain either a endpoint or a credentialScopes. Unable to create a bearerTokenAuthenticationPolicy`);
     }
     return undefined;
@@ -56137,20 +57054,29 @@ function parseRefreshTimestamp(body) {
 
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
-const noCorrelationId = "noCorrelationId";
 /**
+ * Returns the authority host from either the options bag or the AZURE_AUTHORITY_HOST environment variable.
+ *
+ * Defaults to {@link DefaultAuthorityHost}.
  * @internal
  */
-function getIdentityClientAuthorityHost(options) {
-    // The authorityHost can come from options or from the AZURE_AUTHORITY_HOST environment variable.
+function getAuthorityHost(options) {
     let authorityHost = options?.authorityHost;
-    // The AZURE_AUTHORITY_HOST environment variable can only be provided in Node.js.
-    if (isNode) {
-        authorityHost = authorityHost ?? process.env.AZURE_AUTHORITY_HOST;
+    if (!authorityHost && isNodeLike) {
+        authorityHost = process.env.AZURE_AUTHORITY_HOST;
     }
-    // If the authorityHost is not provided, we use the default one from the public cloud: https://login.microsoftonline.com
     return authorityHost ?? DefaultAuthorityHost;
 }
+
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+const noCorrelationId = "noCorrelationId";
+const HttpStatus = {
+    CLIENT_ERROR_RANGE_START: 400,
+    CLIENT_ERROR_RANGE_END: 499,
+    SERVER_ERROR_RANGE_START: 500,
+    SERVER_ERROR_RANGE_END: 599,
+};
 /**
  * The network module used by the Identity credentials.
  *
@@ -56170,7 +57096,7 @@ class IdentityClient extends ServiceClient {
         const userAgentPrefix = options?.userAgentOptions?.userAgentPrefix
             ? `${options.userAgentOptions.userAgentPrefix} ${packageDetails}`
             : `${packageDetails}`;
-        const baseUri = getIdentityClientAuthorityHost(options);
+        const baseUri = getAuthorityHost(options);
         if (!baseUri.startsWith("https:")) {
             throw new Error("The authorityHost address must use the 'https' protocol.");
         }
@@ -56322,7 +57248,7 @@ class IdentityClient extends ServiceClient {
         const response = await this.sendRequest(request);
         this.logIdentifiers(response);
         return {
-            body: response.bodyAsText ? JSON.parse(response.bodyAsText) : undefined,
+            body: this.parseResponseBody(response),
             headers: response.headers.toJSON(),
             status: response.status,
         };
@@ -56340,7 +57266,7 @@ class IdentityClient extends ServiceClient {
         const response = await this.sendRequest(request);
         this.logIdentifiers(response);
         return {
-            body: response.bodyAsText ? JSON.parse(response.bodyAsText) : undefined,
+            body: this.parseResponseBody(response),
             headers: response.headers.toJSON(),
             status: response.status,
         };
@@ -56377,12 +57303,57 @@ class IdentityClient extends ServiceClient {
                 return;
             }
             const base64Metadata = accessToken.split(".")[1];
-            const { appid, upn, tid, oid } = JSON.parse(Buffer.from(base64Metadata, "base64").toString("utf8"));
+            const { appid, upn, tid, oid } = JSON.parse(uint8ArrayToString(stringToUint8Array(base64Metadata, "base64url"), "utf-8"));
             logger$k.info(`[Authenticated account] Client ID: ${appid}. Tenant ID: ${tid}. User Principal Name: ${upn || unavailableUpn}. Object ID (user): ${oid}`);
         }
         catch (e) {
             logger$k.warning("allowLoggingAccountIdentifiers was set, but we couldn't log the account information. Error:", e.message);
         }
+    }
+    /**
+     * Parses the response body if possible. Add error properties if parsing fails.
+     * This follows MSAL INetworkModule behavior so the response is in expected format.
+     */
+    parseResponseBody(response) {
+        let parsedBody;
+        try {
+            parsedBody = JSON.parse(response.bodyAsText || "");
+        }
+        catch (error) {
+            logger$k.info(`IdentityClient: Could not parse response body: ${error}`);
+            let errorType;
+            let errorDescriptionHelper;
+            /**
+             * Determine error type based on status code ranges following MSAL patterns:
+             * Client error responses (400 – 499)
+             * Server error responses (500 – 599)
+             */
+            if (response.status >= HttpStatus.CLIENT_ERROR_RANGE_START &&
+                response.status <= HttpStatus.CLIENT_ERROR_RANGE_END) {
+                errorType = "client_error";
+                errorDescriptionHelper = "A client";
+            }
+            else if (response.status >= HttpStatus.SERVER_ERROR_RANGE_START &&
+                response.status <= HttpStatus.SERVER_ERROR_RANGE_END) {
+                errorType = "server_error";
+                errorDescriptionHelper = "A server";
+            }
+            else {
+                errorType = "unknown_error";
+                errorDescriptionHelper = "An unknown";
+            }
+            const errorDescriptionLines = [
+                `${errorDescriptionHelper} error occured.`,
+                `Http status code: ${response.status}`,
+                `Http status message: ${response.bodyAsText || "Unknown"}`,
+                `Headers: ${JSON.stringify(response.headers)}`,
+            ];
+            parsedBody = {
+                error: errorType,
+                error_description: errorDescriptionLines.join("\n"),
+            };
+        }
+        return parsedBody;
     }
 }
 
@@ -56615,10 +57586,9 @@ const msalLogger = credentialLogger("MsalClient");
  */
 function generateMsalConfiguration(clientId, tenantId, msalClientOptions = {}) {
     const resolvedTenant = resolveTenantId(msalClientOptions.logger ?? msalLogger, tenantId, clientId);
-    // TODO: move and reuse getIdentityClientAuthorityHost
     const authority = getAuthority(resolvedTenant, getAuthorityHost(msalClientOptions));
     const httpClient = new IdentityClient({
-        ...msalClientOptions.tokenCredentialOptions,
+        ...msalClientOptions,
         authorityHost: authority,
         loggingOptions: msalClientOptions.loggingOptions,
     });
@@ -57091,6 +58061,52 @@ function createMsalClient(clientId, tenantId, createMsalClientOptions = {}) {
 
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
+/**
+ * Extracts public keys from PEM certificate content
+ * @param pemData - The PEM certificate data to parse
+ * @returns Array of base64-encoded public key strings
+ */
+function extractPemCertificateKeys(pemContent) {
+    const certificatePattern = /(-+BEGIN CERTIFICATE-+)(\n\r?|\r\n?)([A-Za-z0-9+/\n\r]+=*)(\n\r?|\r\n?)(-+END CERTIFICATE-+)/g;
+    const publicKeys = [];
+    // Match all possible certificates, in the order they are in the file. These will form the chain that is used for x5c
+    let match;
+    do {
+        match = certificatePattern.exec(pemContent);
+        if (match) {
+            publicKeys.push(match[3]);
+        }
+    } while (match);
+    if (publicKeys.length === 0) {
+        throw new Error("The file at the specified path does not contain a PEM-encoded certificate.");
+    }
+    return publicKeys;
+}
+/**
+ * Checks if PEM certificate content can be parsed as X509Certificate
+ * @param pemCert - The PEM certificate
+ * @returns true if all certificates in the PEM content can be parsed without error
+ */
+function canParseAsX509Certificate(pemCert) {
+    try {
+        const pemContents = extractPemCertificateKeys(pemCert);
+        for (let i = 0; i < pemContents.length; i++) {
+            const pemContent = pemContents[i];
+            // Reconstruct the full PEM format for X509Certificate constructor
+            const fullPemCertificate = `-----BEGIN CERTIFICATE-----\n${pemContent}\n-----END CERTIFICATE-----`;
+            // Attempt to parse as X.509 certificate
+            new X509Certificate(fullPemCertificate);
+        }
+        return true;
+    }
+    catch (extractError) {
+        // Return false for any error (extraction or parsing)
+        return false;
+    }
+}
+
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
 const credentialName$2 = "ClientCertificateCredential";
 const logger$e = credentialLogger(credentialName$2);
 /**
@@ -57134,7 +58150,6 @@ class ClientCertificateCredential {
         this.msalClient = createMsalClient(clientId, tenantId, {
             ...options,
             logger: logger$e,
-            tokenCredentialOptions: options,
         });
     }
     /**
@@ -57192,19 +58207,7 @@ async function parseCertificate(certificateConfiguration, sendCertificateChain) 
         .certificatePath;
     const certificateContents = certificate || (await readFile(certificatePath, "utf8"));
     const x5c = sendCertificateChain ? certificateContents : undefined;
-    const certificatePattern = /(-+BEGIN CERTIFICATE-+)(\n\r?|\r\n?)([A-Za-z0-9+/\n\r]+=*)(\n\r?|\r\n?)(-+END CERTIFICATE-+)/g;
-    const publicKeys = [];
-    // Match all possible certificates, in the order they are in the file. These will form the chain that is used for x5c
-    let match;
-    do {
-        match = certificatePattern.exec(certificateContents);
-        if (match) {
-            publicKeys.push(match[3]);
-        }
-    } while (match);
-    if (publicKeys.length === 0) {
-        throw new Error("The file at the specified path does not contain a PEM-encoded certificate.");
-    }
+    const publicKeys = extractPemCertificateKeys(certificateContents);
     const thumbprint = createHash$1("sha1") // CodeQL [SM04514] Needed for backward compatibility reason
         .update(Buffer.from(publicKeys[0], "base64"))
         .digest("hex")
@@ -57291,7 +58294,6 @@ class ClientSecretCredential {
         this.msalClient = createMsalClient(clientId, tenantId, {
             ...options,
             logger: logger$d,
-            tokenCredentialOptions: options,
         });
     }
     /**
@@ -57357,7 +58359,6 @@ class UsernamePasswordCredential {
         this.password = password;
         this.msalClient = createMsalClient(clientId, this.tenantId, {
             ...options,
-            tokenCredentialOptions: options ?? {},
         });
     }
     /**
@@ -57402,8 +58403,8 @@ const AllSupportedEnvironmentVariables = [
     "AZURE_CLIENT_SEND_CERTIFICATE_CHAIN",
 ];
 function getAdditionallyAllowedTenants() {
-    const additionallyAllowedValues = process.env.AZURE_ADDITIONALLY_ALLOWED_TENANTS ?? "";
-    return additionallyAllowedValues.split(";");
+    const additionallyAllowedValues = process.env.AZURE_ADDITIONALLY_ALLOWED_TENANTS;
+    return additionallyAllowedValues ? additionallyAllowedValues.split(";") : undefined;
 }
 const credentialName$1 = "EnvironmentCredential";
 const logger$b = credentialLogger(credentialName$1);
@@ -57448,9 +58449,13 @@ class EnvironmentCredential {
         const assigned = processEnvVars(AllSupportedEnvironmentVariables).assigned.join(", ");
         logger$b.info(`Found the following environment variables: ${assigned}`);
         const tenantId = process.env.AZURE_TENANT_ID, clientId = process.env.AZURE_CLIENT_ID, clientSecret = process.env.AZURE_CLIENT_SECRET;
-        const additionallyAllowedTenantIds = getAdditionallyAllowedTenants();
+        const additionallyAllowedTenants = options?.additionallyAllowedTenants ?? getAdditionallyAllowedTenants();
         const sendCertificateChain = getSendCertificateChain();
-        const newOptions = { ...options, additionallyAllowedTenantIds, sendCertificateChain };
+        const newOptions = {
+            ...options,
+            additionallyAllowedTenants,
+            sendCertificateChain,
+        };
         if (tenantId) {
             checkTenantId(logger$b, tenantId);
         }
@@ -57672,9 +58677,8 @@ class ClientAssertionCredential {
         this.options = options;
         this.getAssertion = getAssertion;
         this.msalClient = createMsalClient(clientId, tenantId, {
-            ...options,
+            ...this.options,
             logger: logger$9,
-            tokenCredentialOptions: this.options,
         });
     }
     /**
@@ -57711,6 +58715,65 @@ const SupportedWorkloadEnvironmentVariables = [
 ];
 const logger$8 = credentialLogger(credentialName);
 /**
+ * Error messages for WorkloadIdentityCredential
+ */
+const ErrorMessages = {
+    FAILED_TO_PARSE_TOKEN_PROXY: (endpoint, error) => `Failed to parse custom token proxy URL "${endpoint}": ${error}`,
+    INVALID_HTTPS_SCHEME: (protocol) => `Custom token endpoint must use https scheme, got "${protocol}"`,
+    TOKEN_ENDPOINT_NO_USER_INFO: (url) => `Custom token endpoint URL "${url}" must not contain user info`,
+    TOKEN_ENDPOINT_NO_QUERY: (url) => `Custom token endpoint URL "${url}" must not contain a query`,
+    TOKEN_ENDPOINT_NO_FRAGMENT: (url) => `Custom token endpoint URL "${url}" must not contain a fragment`,
+    CA_FILE_EMPTY: (file) => `CA certificate file is empty: ${file}`,
+    FAILED_TO_READ_CA_FILE: (file, error) => `Failed to read CA certificate file: ${file}. ${error}`,
+    INVALID_CA_CERTIFICATES: `Invalid CA certificate data: no valid PEM certificates found`,
+    INVALID_FILE_PATH: (path) => `Invalid file path provided ${path}.`,
+    NO_FILE_CONTENT: (path) => `No content on the file ${path}.`,
+    NO_CA_SOURCE: `No CA certificate source specified.`,
+    CLIENT_ID_REQUIRED: `clientId is a required parameter. In DefaultAzureCredential and ManagedIdentityCredential, this can be provided as an environment variable - "AZURE_CLIENT_ID".
+        See the troubleshooting guide for more information: https://aka.ms/azsdk/js/identity/workloadidentitycredential/troubleshoot`,
+    TENANT_ID_REQUIRED: `tenantId is a required parameter. In DefaultAzureCredential and ManagedIdentityCredential, this can be provided as an environment variable - "AZURE_TENANT_ID".
+        See the troubleshooting guide for more information: https://aka.ms/azsdk/js/identity/workloadidentitycredential/troubleshoot`,
+    TOKEN_FILE_PATH_REQUIRED: `federatedTokenFilePath is a required parameter. In DefaultAzureCredential and ManagedIdentityCredential, this can be provided as an environment variable - "AZURE_FEDERATED_TOKEN_FILE".
+        See the troubleshooting guide for more information: https://aka.ms/azsdk/js/identity/workloadidentitycredential/troubleshoot`,
+    TOKEN_PROXY_NOT_SET: `AZURE_KUBERNETES_TOKEN_PROXY is not set but other custom endpoint-related environment variables are present`,
+    CA_FILE_AND_DATA_EXCLUSIVE: `AZURE_KUBERNETES_CA_FILE and AZURE_KUBERNETES_CA_DATA are mutually exclusive. Specify only one.`,
+    MISSING_ENV_VARS: `tenantId, clientId, and federatedTokenFilePath are required parameters. 
+      In DefaultAzureCredential and ManagedIdentityCredential, these can be provided as environment variables - 
+      "AZURE_TENANT_ID",
+      "AZURE_CLIENT_ID",
+      "AZURE_FEDERATED_TOKEN_FILE". See the troubleshooting guide for more information: https://aka.ms/azsdk/js/identity/workloadidentitycredential/troubleshoot`,
+};
+/**
+ * @internal
+ * Parses and validates the custom token proxy endpoint URL
+ */
+function parseAndValidateCustomTokenProxy(endpoint) {
+    let tokenProxy;
+    try {
+        tokenProxy = new URL(endpoint);
+    }
+    catch (error) {
+        throw new CredentialUnavailableError(`${credentialName}: is unavailable. ${ErrorMessages.FAILED_TO_PARSE_TOKEN_PROXY(endpoint, error)}`);
+    }
+    if (tokenProxy.protocol !== "https:") {
+        throw new CredentialUnavailableError(`${credentialName}: is unavailable. ${ErrorMessages.INVALID_HTTPS_SCHEME(tokenProxy.protocol)}`);
+    }
+    if (tokenProxy.username || tokenProxy.password) {
+        throw new CredentialUnavailableError(`${credentialName}: is unavailable. ${ErrorMessages.TOKEN_ENDPOINT_NO_USER_INFO(tokenProxy.toString())}`);
+    }
+    if (tokenProxy.search) {
+        throw new CredentialUnavailableError(`${credentialName}: is unavailable. ${ErrorMessages.TOKEN_ENDPOINT_NO_QUERY(tokenProxy.toString())}`);
+    }
+    if (tokenProxy.hash) {
+        throw new CredentialUnavailableError(`${credentialName}: is unavailable. ${ErrorMessages.TOKEN_ENDPOINT_NO_FRAGMENT(tokenProxy.toString())}`);
+    }
+    if (!tokenProxy.pathname || tokenProxy.pathname === "") {
+        // if the path is empty, set it to "/" to avoid stripping the path from req.URL
+        tokenProxy.pathname = "/";
+    }
+    return tokenProxy.toString();
+}
+/**
  * Workload Identity authentication is a feature in Azure that allows applications running on virtual machines (VMs)
  * to access other Azure resources without the need for a service principal or managed identity. With Workload Identity
  * authentication, applications authenticate themselves using their own identity, rather than using a shared service
@@ -57729,6 +58792,12 @@ class WorkloadIdentityCredential {
     azureFederatedTokenFileContent = undefined;
     cacheDate = undefined;
     federatedTokenFilePath;
+    // AKS proxy CA caching - persists across token requests
+    cachedTlsSettings;
+    cachedCaData;
+    caData;
+    caFile;
+    sniName;
     /**
      * WorkloadIdentityCredential supports Microsoft Entra Workload ID on Kubernetes.
      *
@@ -57747,19 +58816,132 @@ class WorkloadIdentityCredential {
             checkTenantId(logger$8, tenantId);
         }
         if (!clientId) {
-            throw new CredentialUnavailableError(`${credentialName}: is unavailable. clientId is a required parameter. In DefaultAzureCredential and ManagedIdentityCredential, this can be provided as an environment variable - "AZURE_CLIENT_ID".
-        See the troubleshooting guide for more information: https://aka.ms/azsdk/js/identity/workloadidentitycredential/troubleshoot`);
+            throw new CredentialUnavailableError(`${credentialName}: is unavailable. ${ErrorMessages.CLIENT_ID_REQUIRED}`);
         }
         if (!tenantId) {
-            throw new CredentialUnavailableError(`${credentialName}: is unavailable. tenantId is a required parameter. In DefaultAzureCredential and ManagedIdentityCredential, this can be provided as an environment variable - "AZURE_TENANT_ID".
-        See the troubleshooting guide for more information: https://aka.ms/azsdk/js/identity/workloadidentitycredential/troubleshoot`);
+            throw new CredentialUnavailableError(`${credentialName}: is unavailable. ${ErrorMessages.TENANT_ID_REQUIRED}`);
         }
         if (!this.federatedTokenFilePath) {
-            throw new CredentialUnavailableError(`${credentialName}: is unavailable. federatedTokenFilePath is a required parameter. In DefaultAzureCredential and ManagedIdentityCredential, this can be provided as an environment variable - "AZURE_FEDERATED_TOKEN_FILE".
-        See the troubleshooting guide for more information: https://aka.ms/azsdk/js/identity/workloadidentitycredential/troubleshoot`);
+            throw new CredentialUnavailableError(`${credentialName}: is unavailable. ${ErrorMessages.TOKEN_FILE_PATH_REQUIRED}`);
+        }
+        // Use identity binding mode only when enableAzureProxy is set
+        if (workloadIdentityCredentialOptions.enableAzureProxy) {
+            const kubernetesTokenProxy = process.env.AZURE_KUBERNETES_TOKEN_PROXY;
+            const kubernetesSNIName = process.env.AZURE_KUBERNETES_SNI_NAME;
+            const kubernetesCAFile = process.env.AZURE_KUBERNETES_CA_FILE;
+            const kubernetesCAData = process.env.AZURE_KUBERNETES_CA_DATA;
+            if (!kubernetesTokenProxy) {
+                // Custom token proxy is not set, while other Kubernetes-related environment variables are present,
+                // this is likely a configuration issue so erroring out to avoid misconfiguration
+                if (kubernetesSNIName || kubernetesCAFile || kubernetesCAData) {
+                    throw new CredentialUnavailableError(`${credentialName}: is unavailable. ${ErrorMessages.TOKEN_PROXY_NOT_SET}`);
+                }
+                logger$8.info(`enableAzureProxy is true but AZURE_KUBERNETES_TOKEN_PROXY is not set, using normal authentication flow`);
+            }
+            else {
+                const tokenProxy = parseAndValidateCustomTokenProxy(kubernetesTokenProxy);
+                // CAFile and CAData are mutually exclusive, at most one can be set.
+                // If none of CAFile or CAData are set, the default system CA pool will be used.
+                if (kubernetesCAFile && kubernetesCAData) {
+                    throw new CredentialUnavailableError(`${credentialName}: is unavailable. ${ErrorMessages.CA_FILE_AND_DATA_EXCLUSIVE}`);
+                }
+                this.caData = kubernetesCAData;
+                this.caFile = kubernetesCAFile;
+                this.sniName = kubernetesSNIName;
+                // Configure client options with AKS proxy client
+                const proxyClient = this.createAksProxyClient(tokenProxy);
+                workloadIdentityCredentialOptions.httpClient = proxyClient;
+                logger$8.info(`${credentialName}: Using proxy client for token requests`);
+            }
         }
         logger$8.info(`Invoking ClientAssertionCredential with tenant ID: ${tenantId}, clientId: ${workloadIdentityCredentialOptions.clientId} and federated token path: [REDACTED]`);
-        this.client = new ClientAssertionCredential(tenantId, clientId, this.readFileContents.bind(this), options);
+        this.client = new ClientAssertionCredential(tenantId, clientId, this.readFileContents.bind(this), workloadIdentityCredentialOptions);
+    }
+    /**
+     * Creates a proxy HttpClient that intercepts token requests and redirects them to the Kubernetes endpoint
+     * Caching is handled at the credential level to persist across token requests
+     */
+    createAksProxyClient(tokenEndpoint) {
+        const defaultClient = createDefaultHttpClient();
+        // Init cached TLS settings at construction time to fail fast on misconfiguration
+        this.cachedTlsSettings = this.getTlsSettings();
+        return {
+            sendRequest: async (request) => {
+                const requestUrl = new URL(request.url);
+                logger$8.info(`${credentialName}: Redirecting request to Kubernetes endpoint: ${tokenEndpoint}`);
+                const proxyUrl = new URL(tokenEndpoint);
+                // Remove leading slash from request path and join with proxy path
+                const requestPath = requestUrl.pathname.replace(/^\//, "");
+                const combinedPath = proxyUrl.pathname.endsWith("/")
+                    ? proxyUrl.pathname + requestPath
+                    : proxyUrl.pathname + "/" + requestPath;
+                // Create new URL preserving query and fragment from original request
+                const newUrl = new URL(proxyUrl.origin);
+                newUrl.pathname = combinedPath;
+                newUrl.search = requestUrl.search;
+                newUrl.hash = requestUrl.hash;
+                request.url = newUrl.toString();
+                request.tlsSettings = this.getTlsSettings();
+                logger$8.info(`${credentialName}: Sending request to ${request.url}`);
+                // Forward the modified request with custom TLS settings
+                return defaultClient.sendRequest(request);
+            },
+        };
+    }
+    /**
+     * Gets TLS settings for the request.
+     * Handles a few scenarios with CA data or CA file provided.
+     */
+    getTlsSettings() {
+        // No CA overrides, use default transport
+        if (!this.caData && !this.caFile) {
+            if (!this.cachedTlsSettings) {
+                this.cachedTlsSettings = this.sniName ? { servername: this.sniName } : {};
+            }
+            return this.cachedTlsSettings;
+        }
+        // Host provided CA bytes in AZURE_KUBERNETES_CA_DATA and can't change now
+        if (!this.caFile) {
+            if (!this.cachedTlsSettings) {
+                if (!canParseAsX509Certificate(this.caData)) {
+                    throw new CredentialUnavailableError(`${credentialName}: is unavailable. ${ErrorMessages.INVALID_CA_CERTIFICATES}`);
+                }
+                this.cachedTlsSettings = this.sniName ? { servername: this.sniName } : {};
+                this.cachedTlsSettings.ca = this.caData;
+            }
+            return this.cachedTlsSettings;
+        }
+        // Host provided the CA bytes in a file whose contents it can change,
+        let fileContent;
+        try {
+            fileContent = readFileSync$1(this.caFile);
+        }
+        catch (error) {
+            throw new CredentialUnavailableError(`${credentialName}: is unavailable. ${ErrorMessages.FAILED_TO_READ_CA_FILE(this.caFile, error)}`);
+        }
+        // This can happen in the middle of CA rotation
+        if (fileContent.length === 0) {
+            if (!this.cachedTlsSettings) {
+                // If the transport was never created, error out here to force retrying the call later
+                throw new CredentialUnavailableError(`${credentialName}: is unavailable. ${ErrorMessages.CA_FILE_EMPTY(this.caFile)}`);
+            }
+            // If the transport was already created, just keep using it
+            return this.cachedTlsSettings;
+        }
+        // Check if CA has changed
+        if (!this.cachedCaData || !fileContent.equals(this.cachedCaData)) {
+            const caDataString = fileContent.toString("utf8");
+            if (!canParseAsX509Certificate(caDataString)) {
+                throw new CredentialUnavailableError(`${credentialName}: is unavailable. ${ErrorMessages.INVALID_CA_CERTIFICATES}`);
+            }
+            // CA has changed, rebuild the TLS settings with new CA pool
+            this.cachedTlsSettings = {
+                ca: caDataString,
+                ...(this.sniName && { servername: this.sniName }),
+            };
+            this.cachedCaData = fileContent;
+        }
+        return this.cachedTlsSettings;
     }
     /**
      * Authenticates with Microsoft Entra ID and returns an access token if successful.
@@ -57771,11 +58953,7 @@ class WorkloadIdentityCredential {
      */
     async getToken(scopes, options) {
         if (!this.client) {
-            const errorMessage = `${credentialName}: is unavailable. tenantId, clientId, and federatedTokenFilePath are required parameters. 
-      In DefaultAzureCredential and ManagedIdentityCredential, these can be provided as environment variables - 
-      "AZURE_TENANT_ID",
-      "AZURE_CLIENT_ID",
-      "AZURE_FEDERATED_TOKEN_FILE". See the troubleshooting guide for more information: https://aka.ms/azsdk/js/identity/workloadidentitycredential/troubleshoot`;
+            const errorMessage = `${credentialName}: is unavailable. ${ErrorMessages.MISSING_ENV_VARS}`;
             logger$8.info(errorMessage);
             throw new CredentialUnavailableError(errorMessage);
         }
@@ -57788,13 +58966,13 @@ class WorkloadIdentityCredential {
             this.azureFederatedTokenFileContent = undefined;
         }
         if (!this.federatedTokenFilePath) {
-            throw new CredentialUnavailableError(`${credentialName}: is unavailable. Invalid file path provided ${this.federatedTokenFilePath}.`);
+            throw new CredentialUnavailableError(`${credentialName}: is unavailable. ${ErrorMessages.INVALID_FILE_PATH(this.federatedTokenFilePath)}`);
         }
         if (!this.azureFederatedTokenFileContent) {
             const file = await readFile(this.federatedTokenFilePath, "utf8");
             const value = file.trim();
             if (!value) {
-                throw new CredentialUnavailableError(`${credentialName}: is unavailable. No content on the file ${this.federatedTokenFilePath}.`);
+                throw new CredentialUnavailableError(`${credentialName}: is unavailable. ${ErrorMessages.NO_FILE_CONTENT(this.federatedTokenFilePath)}`);
             }
             else {
                 this.azureFederatedTokenFileContent = value;
@@ -58628,7 +59806,7 @@ function prepareProcess(executable, args, options, allowedOptionNames) {
     }
     return { command, nodeOptions };
 }
-async function execFile$1(command, args = [], options = {}) {
+async function execFile$2(command, args = [], options = {}) {
     const prepared = prepareProcess(command, args, options, execFileOptionNames);
     return new Promise((resolve, reject) => {
         callWithSanitizedChildProcessErrors(() => childProcess.execFile(prepared.command.executable, prepared.command.args, {
@@ -58668,7 +59846,7 @@ const processUtils = {
      */
     async execFileWithResult(file, params, options) {
         try {
-            const result = await execFile$1(file, params, options);
+            const result = await execFile$2(file, params, options);
             return { ...result, error: null };
         }
         catch (error) {
@@ -58715,6 +59893,53 @@ const azureDeveloperCliPublicErrorMessages = {
  */
 const developerCliCredentialInternals = {
     /**
+     * Parses azd stderr JSON output to extract a human-readable error message.
+     *
+     * Three formats are supported across azd versions:
+     * - pre-v1.23.7: `{"type":"consoleMessage","data":{"message":"..."}}`
+     * - v1.23.7 - v1.23.15: an empty `consoleMessage` line followed by `{"error":"...","message":"...","suggestion":"..."}`
+     * - v1.24.0+: `{"error":"...","message":"...","suggestion":"..."}`
+     *
+     * The structured `error` field is preferred. If absent, falls back to the
+     * first non-empty `data.message` from a legacy `consoleMessage` line. If
+     * neither is found, the raw stderr is returned unchanged so plain-text and
+     * malformed output continue to surface to callers.
+     *
+     * @param stderr - The stderr output from azd command
+     * @returns The parsed error message or raw stderr
+     * @internal
+     */
+    parseAzdStderr(stderr) {
+        if (!stderr?.trim()) {
+            return stderr;
+        }
+        let fallback;
+        for (const rawLine of stderr.split("\n")) {
+            const line = rawLine.trim();
+            if (!line.startsWith("{")) {
+                continue;
+            }
+            let parsed;
+            try {
+                parsed = JSON.parse(line);
+            }
+            catch {
+                // Not valid JSON on this line; continue.
+                continue;
+            }
+            if (typeof parsed?.error === "string" && parsed.error.trim()) {
+                return parsed.error.trim();
+            }
+            if (fallback === undefined) {
+                const message = parsed?.data?.message;
+                if (typeof message === "string" && message.trim()) {
+                    fallback = message.trim();
+                }
+            }
+        }
+        return fallback ?? stderr;
+    },
+    /**
      * @internal
      */
     getSafeWorkingDir() {
@@ -58742,7 +59967,7 @@ const developerCliCredentialInternals = {
         }
         let claimsSections = [];
         if (claims) {
-            const encodedClaims = btoa(claims);
+            const encodedClaims = uint8ArrayToString(stringToUint8Array(claims, "utf-8"), "base64");
             claimsSections = ["--claims", encodedClaims];
         }
         const args = [
@@ -58871,7 +60096,8 @@ class AzureDeveloperCliCredential {
                 }
                 catch (e) {
                     if (obj.stderr) {
-                        throw new CredentialUnavailableError(obj.stderr);
+                        const errorMessage = developerCliCredentialInternals.parseAzdStderr(obj.stderr);
+                        throw new CredentialUnavailableError(errorMessage);
                     }
                     throw e;
                 }
@@ -59012,7 +60238,7 @@ class AzureCliCredential {
         const scope = typeof scopes === "string" ? scopes : scopes[0];
         const claimsValue = options.claims;
         if (claimsValue && claimsValue.trim()) {
-            const encodedClaims = btoa(claimsValue);
+            const encodedClaims = uint8ArrayToString(stringToUint8Array(claimsValue, "utf-8"), "base64");
             let loginCmd = `az login --claims-challenge ${encodedClaims} --scope ${scope}`;
             const tenantIdFromOptions = options.tenantId;
             if (tenantIdFromOptions) {
@@ -59305,7 +60531,7 @@ class AzurePowerShellCredential {
             const scope = typeof scopes === "string" ? scopes : scopes[0];
             const claimsValue = options.claims;
             if (claimsValue && claimsValue.trim()) {
-                const encodedClaims = btoa(claimsValue);
+                const encodedClaims = uint8ArrayToString(stringToUint8Array(claimsValue, "utf-8"), "base64");
                 let loginCmd = `Connect-AzAccount -ClaimsChallenge ${encodedClaims}`;
                 const tenantIdFromOptions = options.tenantId;
                 if (tenantIdFromOptions) {
@@ -59527,7 +60753,6 @@ class BrokerCredential {
         this.brokerAdditionallyAllowedTenantIds = resolveAdditionallyAllowedTenantIds(options?.additionallyAllowedTenants);
         const msalClientOptions = {
             ...options,
-            tokenCredentialOptions: options,
             logger: logger$1,
             brokerOptions: {
                 enabled: true,
@@ -59726,7 +60951,7 @@ class UnavailableDefaultCredential {
 /**
  * Provides a default {@link ChainedTokenCredential} configuration that works for most
  * applications that use Azure SDK client libraries. For more information, see
- * [DefaultAzureCredential overview](https://aka.ms/azsdk/js/identity/credential-chains#use-defaultazurecredential-for-flexibility).
+ * [DefaultAzureCredential overview](https://aka.ms/azsdk/js/identity/credential-chains#defaultazurecredential-overview).
  *
  * The following credential types will be tried, in order:
  *
@@ -59800,10 +61025,7 @@ class DefaultAzureCredential extends ChainedTokenCredential {
                     // Setting `sendProbeRequest` to false to ensure ManagedIdentityCredential behavior
                     // is consistent when used standalone in DAC chain or used directly.
                     credentialFunctions = [
-                        () => createDefaultManagedIdentityCredential({
-                            ...options,
-                            sendProbeRequest: false,
-                        }),
+                        () => createDefaultManagedIdentityCredential({ sendProbeRequest: false }),
                     ];
                     break;
                 case "visualstudiocodecredential":
@@ -60097,663 +61319,6 @@ async function publishVsExtension(options, adapter) {
     }
 }
 
-var __awaiter$1 = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-/* eslint-disable @typescript-eslint/unbound-method */
-const IS_WINDOWS = process.platform === 'win32';
-/*
- * Class for running command line tools. Handles quoting and arg parsing in a platform agnostic way.
- */
-class ToolRunner extends events$1.EventEmitter {
-    constructor(toolPath, args, options) {
-        super();
-        if (!toolPath) {
-            throw new Error("Parameter 'toolPath' cannot be null or empty.");
-        }
-        this.toolPath = toolPath;
-        this.args = args || [];
-        this.options = options || {};
-    }
-    _debug(message) {
-        if (this.options.listeners && this.options.listeners.debug) {
-            this.options.listeners.debug(message);
-        }
-    }
-    _getCommandString(options, noPrefix) {
-        const toolPath = this._getSpawnFileName();
-        const args = this._getSpawnArgs(options);
-        let cmd = noPrefix ? '' : '[command]'; // omit prefix when piped to a second tool
-        if (IS_WINDOWS) {
-            // Windows + cmd file
-            if (this._isCmdFile()) {
-                cmd += toolPath;
-                for (const a of args) {
-                    cmd += ` ${a}`;
-                }
-            }
-            // Windows + verbatim
-            else if (options.windowsVerbatimArguments) {
-                cmd += `"${toolPath}"`;
-                for (const a of args) {
-                    cmd += ` ${a}`;
-                }
-            }
-            // Windows (regular)
-            else {
-                cmd += this._windowsQuoteCmdArg(toolPath);
-                for (const a of args) {
-                    cmd += ` ${this._windowsQuoteCmdArg(a)}`;
-                }
-            }
-        }
-        else {
-            // OSX/Linux - this can likely be improved with some form of quoting.
-            // creating processes on Unix is fundamentally different than Windows.
-            // on Unix, execvp() takes an arg array.
-            cmd += toolPath;
-            for (const a of args) {
-                cmd += ` ${a}`;
-            }
-        }
-        return cmd;
-    }
-    _processLineBuffer(data, strBuffer, onLine) {
-        try {
-            let s = strBuffer + data.toString();
-            let n = s.indexOf(os.EOL);
-            while (n > -1) {
-                const line = s.substring(0, n);
-                onLine(line);
-                // the rest of the string ...
-                s = s.substring(n + os.EOL.length);
-                n = s.indexOf(os.EOL);
-            }
-            return s;
-        }
-        catch (err) {
-            // streaming lines to console is best effort.  Don't fail a build.
-            this._debug(`error processing line. Failed with error ${err}`);
-            return '';
-        }
-    }
-    _getSpawnFileName() {
-        if (IS_WINDOWS) {
-            if (this._isCmdFile()) {
-                return process.env['COMSPEC'] || 'cmd.exe';
-            }
-        }
-        return this.toolPath;
-    }
-    _getSpawnArgs(options) {
-        if (IS_WINDOWS) {
-            if (this._isCmdFile()) {
-                let argline = `/D /S /C "${this._windowsQuoteCmdArg(this.toolPath)}`;
-                for (const a of this.args) {
-                    argline += ' ';
-                    argline += options.windowsVerbatimArguments
-                        ? a
-                        : this._windowsQuoteCmdArg(a);
-                }
-                argline += '"';
-                return [argline];
-            }
-        }
-        return this.args;
-    }
-    _endsWith(str, end) {
-        return str.endsWith(end);
-    }
-    _isCmdFile() {
-        const upperToolPath = this.toolPath.toUpperCase();
-        return (this._endsWith(upperToolPath, '.CMD') ||
-            this._endsWith(upperToolPath, '.BAT'));
-    }
-    _windowsQuoteCmdArg(arg) {
-        // for .exe, apply the normal quoting rules that libuv applies
-        if (!this._isCmdFile()) {
-            return this._uvQuoteCmdArg(arg);
-        }
-        // otherwise apply quoting rules specific to the cmd.exe command line parser.
-        // the libuv rules are generic and are not designed specifically for cmd.exe
-        // command line parser.
-        //
-        // for a detailed description of the cmd.exe command line parser, refer to
-        // http://stackoverflow.com/questions/4094699/how-does-the-windows-command-interpreter-cmd-exe-parse-scripts/7970912#7970912
-        // need quotes for empty arg
-        if (!arg) {
-            return '""';
-        }
-        // determine whether the arg needs to be quoted
-        const cmdSpecialChars = [
-            ' ',
-            '\t',
-            '&',
-            '(',
-            ')',
-            '[',
-            ']',
-            '{',
-            '}',
-            '^',
-            '=',
-            ';',
-            '!',
-            "'",
-            '+',
-            ',',
-            '`',
-            '~',
-            '|',
-            '<',
-            '>',
-            '"'
-        ];
-        let needsQuotes = false;
-        for (const char of arg) {
-            if (cmdSpecialChars.some(x => x === char)) {
-                needsQuotes = true;
-                break;
-            }
-        }
-        // short-circuit if quotes not needed
-        if (!needsQuotes) {
-            return arg;
-        }
-        // the following quoting rules are very similar to the rules that by libuv applies.
-        //
-        // 1) wrap the string in quotes
-        //
-        // 2) double-up quotes - i.e. " => ""
-        //
-        //    this is different from the libuv quoting rules. libuv replaces " with \", which unfortunately
-        //    doesn't work well with a cmd.exe command line.
-        //
-        //    note, replacing " with "" also works well if the arg is passed to a downstream .NET console app.
-        //    for example, the command line:
-        //          foo.exe "myarg:""my val"""
-        //    is parsed by a .NET console app into an arg array:
-        //          [ "myarg:\"my val\"" ]
-        //    which is the same end result when applying libuv quoting rules. although the actual
-        //    command line from libuv quoting rules would look like:
-        //          foo.exe "myarg:\"my val\""
-        //
-        // 3) double-up slashes that precede a quote,
-        //    e.g.  hello \world    => "hello \world"
-        //          hello\"world    => "hello\\""world"
-        //          hello\\"world   => "hello\\\\""world"
-        //          hello world\    => "hello world\\"
-        //
-        //    technically this is not required for a cmd.exe command line, or the batch argument parser.
-        //    the reasons for including this as a .cmd quoting rule are:
-        //
-        //    a) this is optimized for the scenario where the argument is passed from the .cmd file to an
-        //       external program. many programs (e.g. .NET console apps) rely on the slash-doubling rule.
-        //
-        //    b) it's what we've been doing previously (by deferring to node default behavior) and we
-        //       haven't heard any complaints about that aspect.
-        //
-        // note, a weakness of the quoting rules chosen here, is that % is not escaped. in fact, % cannot be
-        // escaped when used on the command line directly - even though within a .cmd file % can be escaped
-        // by using %%.
-        //
-        // the saving grace is, on the command line, %var% is left as-is if var is not defined. this contrasts
-        // the line parsing rules within a .cmd file, where if var is not defined it is replaced with nothing.
-        //
-        // one option that was explored was replacing % with ^% - i.e. %var% => ^%var^%. this hack would
-        // often work, since it is unlikely that var^ would exist, and the ^ character is removed when the
-        // variable is used. the problem, however, is that ^ is not removed when %* is used to pass the args
-        // to an external program.
-        //
-        // an unexplored potential solution for the % escaping problem, is to create a wrapper .cmd file.
-        // % can be escaped within a .cmd file.
-        let reverse = '"';
-        let quoteHit = true;
-        for (let i = arg.length; i > 0; i--) {
-            // walk the string in reverse
-            reverse += arg[i - 1];
-            if (quoteHit && arg[i - 1] === '\\') {
-                reverse += '\\'; // double the slash
-            }
-            else if (arg[i - 1] === '"') {
-                quoteHit = true;
-                reverse += '"'; // double the quote
-            }
-            else {
-                quoteHit = false;
-            }
-        }
-        reverse += '"';
-        return reverse.split('').reverse().join('');
-    }
-    _uvQuoteCmdArg(arg) {
-        // Tool runner wraps child_process.spawn() and needs to apply the same quoting as
-        // Node in certain cases where the undocumented spawn option windowsVerbatimArguments
-        // is used.
-        //
-        // Since this function is a port of quote_cmd_arg from Node 4.x (technically, lib UV,
-        // see https://github.com/nodejs/node/blob/v4.x/deps/uv/src/win/process.c for details),
-        // pasting copyright notice from Node within this function:
-        //
-        //      Copyright Joyent, Inc. and other Node contributors. All rights reserved.
-        //
-        //      Permission is hereby granted, free of charge, to any person obtaining a copy
-        //      of this software and associated documentation files (the "Software"), to
-        //      deal in the Software without restriction, including without limitation the
-        //      rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
-        //      sell copies of the Software, and to permit persons to whom the Software is
-        //      furnished to do so, subject to the following conditions:
-        //
-        //      The above copyright notice and this permission notice shall be included in
-        //      all copies or substantial portions of the Software.
-        //
-        //      THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-        //      IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-        //      FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-        //      AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-        //      LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-        //      FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
-        //      IN THE SOFTWARE.
-        if (!arg) {
-            // Need double quotation for empty argument
-            return '""';
-        }
-        if (!arg.includes(' ') && !arg.includes('\t') && !arg.includes('"')) {
-            // No quotation needed
-            return arg;
-        }
-        if (!arg.includes('"') && !arg.includes('\\')) {
-            // No embedded double quotes or backslashes, so I can just wrap
-            // quote marks around the whole thing.
-            return `"${arg}"`;
-        }
-        // Expected input/output:
-        //   input : hello"world
-        //   output: "hello\"world"
-        //   input : hello""world
-        //   output: "hello\"\"world"
-        //   input : hello\world
-        //   output: hello\world
-        //   input : hello\\world
-        //   output: hello\\world
-        //   input : hello\"world
-        //   output: "hello\\\"world"
-        //   input : hello\\"world
-        //   output: "hello\\\\\"world"
-        //   input : hello world\
-        //   output: "hello world\\" - note the comment in libuv actually reads "hello world\"
-        //                             but it appears the comment is wrong, it should be "hello world\\"
-        let reverse = '"';
-        let quoteHit = true;
-        for (let i = arg.length; i > 0; i--) {
-            // walk the string in reverse
-            reverse += arg[i - 1];
-            if (quoteHit && arg[i - 1] === '\\') {
-                reverse += '\\';
-            }
-            else if (arg[i - 1] === '"') {
-                quoteHit = true;
-                reverse += '\\';
-            }
-            else {
-                quoteHit = false;
-            }
-        }
-        reverse += '"';
-        return reverse.split('').reverse().join('');
-    }
-    _cloneExecOptions(options) {
-        options = options || {};
-        const result = {
-            cwd: options.cwd || process.cwd(),
-            env: options.env || process.env,
-            silent: options.silent || false,
-            windowsVerbatimArguments: options.windowsVerbatimArguments || false,
-            failOnStdErr: options.failOnStdErr || false,
-            ignoreReturnCode: options.ignoreReturnCode || false,
-            delay: options.delay || 10000
-        };
-        result.outStream = options.outStream || process.stdout;
-        result.errStream = options.errStream || process.stderr;
-        return result;
-    }
-    _getSpawnOptions(options, toolPath) {
-        options = options || {};
-        const result = {};
-        result.cwd = options.cwd;
-        result.env = options.env;
-        result['windowsVerbatimArguments'] =
-            options.windowsVerbatimArguments || this._isCmdFile();
-        if (options.windowsVerbatimArguments) {
-            result.argv0 = `"${toolPath}"`;
-        }
-        return result;
-    }
-    /**
-     * Exec a tool.
-     * Output will be streamed to the live console.
-     * Returns promise with return code
-     *
-     * @param     tool     path to tool to exec
-     * @param     options  optional exec options.  See ExecOptions
-     * @returns   number
-     */
-    exec() {
-        return __awaiter$1(this, void 0, void 0, function* () {
-            // root the tool path if it is unrooted and contains relative pathing
-            if (!isRooted(this.toolPath) &&
-                (this.toolPath.includes('/') ||
-                    (IS_WINDOWS && this.toolPath.includes('\\')))) {
-                // prefer options.cwd if it is specified, however options.cwd may also need to be rooted
-                this.toolPath = path.resolve(process.cwd(), this.options.cwd || process.cwd(), this.toolPath);
-            }
-            // if the tool is only a file name, then resolve it from the PATH
-            // otherwise verify it exists (add extension on Windows if necessary)
-            this.toolPath = yield which(this.toolPath, true);
-            return new Promise((resolve, reject) => __awaiter$1(this, void 0, void 0, function* () {
-                this._debug(`exec tool: ${this.toolPath}`);
-                this._debug('arguments:');
-                for (const arg of this.args) {
-                    this._debug(`   ${arg}`);
-                }
-                const optionsNonNull = this._cloneExecOptions(this.options);
-                if (!optionsNonNull.silent && optionsNonNull.outStream) {
-                    optionsNonNull.outStream.write(this._getCommandString(optionsNonNull) + os.EOL);
-                }
-                const state = new ExecState(optionsNonNull, this.toolPath);
-                state.on('debug', (message) => {
-                    this._debug(message);
-                });
-                if (this.options.cwd && !(yield exists(this.options.cwd))) {
-                    return reject(new Error(`The cwd: ${this.options.cwd} does not exist!`));
-                }
-                const fileName = this._getSpawnFileName();
-                const cp = child.spawn(fileName, this._getSpawnArgs(optionsNonNull), this._getSpawnOptions(this.options, fileName));
-                let stdbuffer = '';
-                if (cp.stdout) {
-                    cp.stdout.on('data', (data) => {
-                        if (this.options.listeners && this.options.listeners.stdout) {
-                            this.options.listeners.stdout(data);
-                        }
-                        if (!optionsNonNull.silent && optionsNonNull.outStream) {
-                            optionsNonNull.outStream.write(data);
-                        }
-                        stdbuffer = this._processLineBuffer(data, stdbuffer, (line) => {
-                            if (this.options.listeners && this.options.listeners.stdline) {
-                                this.options.listeners.stdline(line);
-                            }
-                        });
-                    });
-                }
-                let errbuffer = '';
-                if (cp.stderr) {
-                    cp.stderr.on('data', (data) => {
-                        state.processStderr = true;
-                        if (this.options.listeners && this.options.listeners.stderr) {
-                            this.options.listeners.stderr(data);
-                        }
-                        if (!optionsNonNull.silent &&
-                            optionsNonNull.errStream &&
-                            optionsNonNull.outStream) {
-                            const s = optionsNonNull.failOnStdErr
-                                ? optionsNonNull.errStream
-                                : optionsNonNull.outStream;
-                            s.write(data);
-                        }
-                        errbuffer = this._processLineBuffer(data, errbuffer, (line) => {
-                            if (this.options.listeners && this.options.listeners.errline) {
-                                this.options.listeners.errline(line);
-                            }
-                        });
-                    });
-                }
-                cp.on('error', (err) => {
-                    state.processError = err.message;
-                    state.processExited = true;
-                    state.processClosed = true;
-                    state.CheckComplete();
-                });
-                cp.on('exit', (code) => {
-                    state.processExitCode = code;
-                    state.processExited = true;
-                    this._debug(`Exit code ${code} received from tool '${this.toolPath}'`);
-                    state.CheckComplete();
-                });
-                cp.on('close', (code) => {
-                    state.processExitCode = code;
-                    state.processExited = true;
-                    state.processClosed = true;
-                    this._debug(`STDIO streams have closed for tool '${this.toolPath}'`);
-                    state.CheckComplete();
-                });
-                state.on('done', (error, exitCode) => {
-                    if (stdbuffer.length > 0) {
-                        this.emit('stdline', stdbuffer);
-                    }
-                    if (errbuffer.length > 0) {
-                        this.emit('errline', errbuffer);
-                    }
-                    cp.removeAllListeners();
-                    if (error) {
-                        reject(error);
-                    }
-                    else {
-                        resolve(exitCode);
-                    }
-                });
-                if (this.options.input) {
-                    if (!cp.stdin) {
-                        throw new Error('child process missing stdin');
-                    }
-                    cp.stdin.end(this.options.input);
-                }
-            }));
-        });
-    }
-}
-/**
- * Convert an arg string to an array of args. Handles escaping
- *
- * @param    argString   string of arguments
- * @returns  string[]    array of arguments
- */
-function argStringToArray(argString) {
-    const args = [];
-    let inQuotes = false;
-    let escaped = false;
-    let arg = '';
-    function append(c) {
-        // we only escape double quotes.
-        if (escaped && c !== '"') {
-            arg += '\\';
-        }
-        arg += c;
-        escaped = false;
-    }
-    for (let i = 0; i < argString.length; i++) {
-        const c = argString.charAt(i);
-        if (c === '"') {
-            if (!escaped) {
-                inQuotes = !inQuotes;
-            }
-            else {
-                append(c);
-            }
-            continue;
-        }
-        if (c === '\\' && escaped) {
-            append(c);
-            continue;
-        }
-        if (c === '\\' && inQuotes) {
-            escaped = true;
-            continue;
-        }
-        if (c === ' ' && !inQuotes) {
-            if (arg.length > 0) {
-                args.push(arg);
-                arg = '';
-            }
-            continue;
-        }
-        append(c);
-    }
-    if (arg.length > 0) {
-        args.push(arg.trim());
-    }
-    return args;
-}
-class ExecState extends events$1.EventEmitter {
-    constructor(options, toolPath) {
-        super();
-        this.processClosed = false; // tracks whether the process has exited and stdio is closed
-        this.processError = '';
-        this.processExitCode = 0;
-        this.processExited = false; // tracks whether the process has exited
-        this.processStderr = false; // tracks whether stderr was written to
-        this.delay = 10000; // 10 seconds
-        this.done = false;
-        this.timeout = null;
-        if (!toolPath) {
-            throw new Error('toolPath must not be empty');
-        }
-        this.options = options;
-        this.toolPath = toolPath;
-        if (options.delay) {
-            this.delay = options.delay;
-        }
-    }
-    CheckComplete() {
-        if (this.done) {
-            return;
-        }
-        if (this.processClosed) {
-            this._setResult();
-        }
-        else if (this.processExited) {
-            this.timeout = setTimeout$1(ExecState.HandleTimeout, this.delay, this);
-        }
-    }
-    _debug(message) {
-        this.emit('debug', message);
-    }
-    _setResult() {
-        // determine whether there is an error
-        let error;
-        if (this.processExited) {
-            if (this.processError) {
-                error = new Error(`There was an error when attempting to execute the process '${this.toolPath}'. This may indicate the process failed to start. Error: ${this.processError}`);
-            }
-            else if (this.processExitCode !== 0 && !this.options.ignoreReturnCode) {
-                error = new Error(`The process '${this.toolPath}' failed with exit code ${this.processExitCode}`);
-            }
-            else if (this.processStderr && this.options.failOnStdErr) {
-                error = new Error(`The process '${this.toolPath}' failed because one or more lines were written to the STDERR stream`);
-            }
-        }
-        // clear the timeout
-        if (this.timeout) {
-            clearTimeout(this.timeout);
-            this.timeout = null;
-        }
-        this.done = true;
-        this.emit('done', error, this.processExitCode);
-    }
-    static HandleTimeout(state) {
-        if (state.done) {
-            return;
-        }
-        if (!state.processClosed && state.processExited) {
-            const message = `The STDIO streams did not close within ${state.delay / 1000} seconds of the exit event from process '${state.toolPath}'. This may indicate a child process inherited the STDIO streams and has not yet exited.`;
-            state._debug(message);
-        }
-        state._setResult();
-    }
-}
-
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-/**
- * Exec a command.
- * Output will be streamed to the live console.
- * Returns promise with return code
- *
- * @param     commandLine        command to execute (can include additional args). Must be correctly escaped.
- * @param     args               optional arguments for tool. Escaping is handled by the lib.
- * @param     options            optional exec options.  See ExecOptions
- * @returns   Promise<number>    exit code
- */
-function exec(commandLine, args, options) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const commandArgs = argStringToArray(commandLine);
-        if (commandArgs.length === 0) {
-            throw new Error(`Parameter 'commandLine' cannot be null or empty.`);
-        }
-        // Path to tool to execute should be first arg
-        const toolPath = commandArgs[0];
-        args = commandArgs.slice(1).concat(args || []);
-        const runner = new ToolRunner(toolPath, args, options);
-        return runner.exec();
-    });
-}
-/**
- * Exec a command and get the output.
- * Output will be streamed to the live console.
- * Returns promise with the exit code and collected stdout and stderr
- *
- * @param     commandLine           command to execute (can include additional args). Must be correctly escaped.
- * @param     args                  optional arguments for tool. Escaping is handled by the lib.
- * @param     options               optional exec options.  See ExecOptions
- * @returns   Promise<ExecOutput>   exit code, stdout, and stderr
- */
-function getExecOutput(commandLine, args, options) {
-    return __awaiter(this, void 0, void 0, function* () {
-        var _a, _b;
-        let stdout = '';
-        let stderr = '';
-        //Using string decoder covers the case where a mult-byte character is split
-        const stdoutDecoder = new StringDecoder('utf8');
-        const stderrDecoder = new StringDecoder('utf8');
-        const originalStdoutListener = (_a = options === null || options === void 0 ? void 0 : options.listeners) === null || _a === void 0 ? void 0 : _a.stdout;
-        const originalStdErrListener = (_b = options === null || options === void 0 ? void 0 : options.listeners) === null || _b === void 0 ? void 0 : _b.stderr;
-        const stdErrListener = (data) => {
-            stderr += stderrDecoder.write(data);
-            if (originalStdErrListener) {
-                originalStdErrListener(data);
-            }
-        };
-        const stdOutListener = (data) => {
-            stdout += stdoutDecoder.write(data);
-            if (originalStdoutListener) {
-                originalStdoutListener(data);
-            }
-        };
-        const listeners = Object.assign(Object.assign({}, options === null || options === void 0 ? void 0 : options.listeners), { stdout: stdOutListener, stderr: stdErrListener });
-        const exitCode = yield exec(commandLine, args, Object.assign(Object.assign({}, options), { listeners }));
-        //flush any remaining characters
-        stdout += stdoutDecoder.end();
-        stderr += stderrDecoder.end();
-        return {
-            exitCode,
-            stdout,
-            stderr
-        };
-    });
-}
-
 class GitHubAdapter {
     quoteExecutablePath(command) {
         if (!/\s/.test(command)) {
@@ -60957,6 +61522,73 @@ const isWsl = () => {
 
 var isWsl$1 = process$1.env.__IS_WSL_TEST__ ? isWsl : isWsl();
 
+const execFile$1 = promisify(childProcess__default.execFile);
+
+const powerShellPath$1 = () => `${process$1.env.SYSTEMROOT || process$1.env.windir || String.raw`C:\Windows`}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`;
+
+const argumentsPrefix = [
+	'-NoProfile',
+	'-NonInteractive',
+	'-ExecutionPolicy',
+	'Bypass',
+	'-EncodedCommand',
+];
+
+const encodeCommand = command => Buffer$1.from(command, 'utf16le').toString('base64');
+
+/*
+PowerShell's tokenizer treats the typographic single quotes U+2018, U+2019, U+201A, and U+201B as string delimiters, exactly like the ASCII one, and it does not require the closing quote to match the opening quote. Escaping only the ASCII quote would let any of the others terminate the string and inject a statement. Doubling works for all of them.
+*/
+const escapeArgument = value => `'${String(value).replaceAll(/['‘’‚‛]/g, match => match + match)}'`;
+
+const createArguments = command => [...argumentsPrefix, encodeCommand(command)];
+
+const createExecFileOptions = options => ({
+	encoding: 'utf8',
+	...options,
+	shell: false,
+});
+
+const executePowerShell = async (command, options = {}) => {
+	const {
+		powerShellPath: psPath,
+		...execFileOptions
+	} = options;
+
+	return execFile$1(
+		psPath ?? powerShellPath$1(),
+		createArguments(command),
+		createExecFileOptions(execFileOptions),
+	);
+};
+
+executePowerShell.argumentsPrefix = argumentsPrefix;
+executePowerShell.encodeCommand = encodeCommand;
+executePowerShell.escapeArgument = escapeArgument;
+executePowerShell.createArguments = createArguments;
+
+function parseMountPointFromConfig(content) {
+	for (const line of content.split('\n')) {
+		// Skip comment lines
+		if (/^\s*#/.test(line)) {
+			continue;
+		}
+
+		// Match root at start of line (after optional whitespace)
+		const match = /^\s*root\s*=\s*(?<mountPoint>"[^"]*"|'[^']*'|[^#]*)/.exec(line);
+		if (!match) {
+			continue;
+		}
+
+		return match.groups.mountPoint
+			.trim()
+			// Strip surrounding quotes
+			.replaceAll(/^["']|["']$/g, '');
+	}
+}
+
+const execFile = promisify(childProcess__default.execFile);
+
 const wslDrivesMountPoint = (() => {
 	// Default value for "root" param
 	// according to https://docs.microsoft.com/en-us/windows/wsl/wsl-config
@@ -60983,13 +61615,13 @@ const wslDrivesMountPoint = (() => {
 		}
 
 		const configContent = await fs$2.readFile(configFilePath, {encoding: 'utf8'});
-		const configMountPoint = /(?<!#.*)root\s*=\s*(?<mountPoint>.*)/g.exec(configContent);
+		const parsedMountPoint = parseMountPointFromConfig(configContent);
 
-		if (!configMountPoint) {
+		if (parsedMountPoint === undefined) {
 			return defaultMountPoint;
 		}
 
-		mountPoint = configMountPoint.groups.mountPoint.trim();
+		mountPoint = parsedMountPoint;
 		mountPoint = mountPoint.endsWith('/') ? mountPoint : `${mountPoint}/`;
 
 		return mountPoint;
@@ -61001,12 +61633,61 @@ const powerShellPathFromWsl = async () => {
 	return `${mountPoint}c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe`;
 };
 
-const powerShellPath = async () => {
-	if (isWsl$1) {
-		return powerShellPathFromWsl();
-	}
+const powerShellPath = isWsl$1 ? powerShellPathFromWsl : powerShellPath$1;
 
-	return `${process$1.env.SYSTEMROOT || process$1.env.windir || String.raw`C:\Windows`}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`;
+// Cache for PowerShell accessibility check
+let canAccessPowerShellPromise;
+
+const canAccessPowerShell = async () => {
+	canAccessPowerShellPromise ??= (async () => {
+		try {
+			const psPath = await powerShellPath();
+			await fs$2.access(psPath, constants$8.X_OK);
+			return true;
+		} catch {
+			// PowerShell is not accessible (either doesn't exist, no execute permission, or other error)
+			return false;
+		}
+	})();
+
+	return canAccessPowerShellPromise;
+};
+
+const wslDefaultBrowser = async () => {
+	const psPath = await powerShellPath();
+	const command = String.raw`(Get-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\http\UserChoice").ProgId`;
+
+	// The spawned Windows process inherits the Linux working directory, which WSL exposes to Windows as a `\\wsl.localhost\…` UNC path served by the distro's default user, so a directory that user cannot traverse makes the launch fail. PowerShell's own directory is on the Windows drive, so it always resolves to a plain `C:\…` path.
+	const {stdout} = await executePowerShell(command, {
+		powerShellPath: psPath,
+		cwd: path$1.dirname(psPath),
+	});
+
+	return stdout.trim();
+};
+
+const isUrl = path => /^[a-z]+:\/\//i.test(path);
+
+// `wslpath` only accepts a single path, so each path needs its own call.
+const convertPath = async (flag, path) => {
+	// `--` stops `wslpath` from reading a leading `-` as an option. Only pass it when needed, as it is only confirmed for WSL 2.5 and later.
+	const wslpathArguments = path.startsWith('-') ? [flag, '--', path] : [flag, path];
+
+	try {
+		const {stdout} = await execFile('wslpath', wslpathArguments, {encoding: 'utf8'});
+		return stdout.replace(/\r?\n$/, '') || path;
+	} catch {
+		// If wslpath fails, keep original path
+		return path;
+	}
+};
+
+const convertWslPathToWindows = async paths => {
+	const isBatch = Array.isArray(paths);
+	const pathArray = isBatch ? paths : [paths];
+	// URLs stay as-is
+	const results = await Promise.all(pathArray.map(path => isUrl(path) ? path : convertPath('-aw', path)));
+	return isBatch ? results : results[0];
 };
 
 function defineLazyProperty(object, propertyName, valueGetter) {
@@ -61028,7 +61709,7 @@ function defineLazyProperty(object, propertyName, valueGetter) {
 	return object;
 }
 
-const execFileAsync$3 = promisify(execFile$2);
+const execFileAsync$3 = promisify(execFile$3);
 
 async function defaultBrowserId() {
 	if (process$1.platform !== 'darwin') {
@@ -61050,7 +61731,7 @@ async function defaultBrowserId() {
 	return browserId;
 }
 
-const execFileAsync$2 = promisify(execFile$2);
+const execFileAsync$2 = promisify(execFile$3);
 
 async function runAppleScript(script, {humanReadableOutput = true, signal} = {}) {
 	if (process$1.platform !== 'darwin') {
@@ -61068,11 +61749,22 @@ async function runAppleScript(script, {humanReadableOutput = true, signal} = {})
 	return stdout.trim();
 }
 
+// Only a double quote can end the AppleScript string literal. A backslash can pre-escape one, and line breaks are rejected as defense in depth.
+const bundleIdentifierPattern = /^[^\n\r"\\]+$/u;
+
 async function bundleName(bundleId) {
+	if (typeof bundleId !== 'string') {
+		throw new TypeError('Expected a string bundle identifier');
+	}
+
+	if (!bundleIdentifierPattern.test(bundleId)) {
+		throw new TypeError(`Invalid bundle identifier: ${JSON.stringify(bundleId)}`);
+	}
+
 	return runAppleScript(`tell application "Finder" to set app_path to application file id "${bundleId}" as string\ntell application "System Events" to get value of property list item "CFBundleName" of property list file (app_path & ":Contents:Info.plist")`);
 }
 
-const execFileAsync$1 = promisify(execFile$2);
+const execFileAsync$1 = promisify(execFile$3);
 
 // TODO: Fix the casing of bundle identifiers in the next major version.
 
@@ -61097,12 +61789,13 @@ const windowsBrowserProgIds = {
 	'IE.HTTP': {name: 'Internet Explorer', id: 'com.microsoft.ie'},
 };
 
-new Map(Object.entries(windowsBrowserProgIds));
+const _windowsBrowserProgIdMap = new Map(Object.entries(windowsBrowserProgIds));
 
 class UnknownBrowserError extends Error {}
 
 async function defaultBrowser$1(_execFileAsync = execFileAsync$1) {
-	const {stdout} = await _execFileAsync('reg', [
+	const regPath = `${process$1.env.SYSTEMROOT ?? process$1.env.windir ?? 'C:\\Windows'}\\System32\\reg.exe`;
+	const {stdout} = await _execFileAsync(regPath, [
 		'QUERY',
 		' HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\Shell\\Associations\\UrlAssociations\\http\\UserChoice',
 		'/v',
@@ -61127,7 +61820,7 @@ async function defaultBrowser$1(_execFileAsync = execFileAsync$1) {
 	return windowsBrowserProgIds[id] ?? windowsBrowserProgIds[baseIdByDot] ?? windowsBrowserProgIds[baseIdByHyphen] ?? {name: id, id};
 }
 
-const execFileAsync = promisify(execFile$2);
+const execFileAsync = promisify(execFile$3);
 
 // Inlined: https://github.com/sindresorhus/titleize/blob/main/index.js
 const titleize = string => string.toLowerCase().replaceAll(/(?:^|\s|-)\S/g, x => x.toUpperCase());
@@ -61153,62 +61846,35 @@ async function defaultBrowser() {
 	throw new Error('Only macOS, Linux, and Windows are supported');
 }
 
-const execFile = promisify(childProcess__default.execFile);
+const isInSsh = Boolean(process$1.env.SSH_CONNECTION
+	|| process$1.env.SSH_CLIENT
+	|| process$1.env.SSH_TTY);
+
+const fallbackAttemptSymbol = Symbol('fallbackAttempt');
 
 // Path to included `xdg-open`.
-const __dirname$1 = path$1.dirname(fileURLToPath(import.meta.url));
+const __dirname$1 = import.meta.url ? path$1.dirname(fileURLToPath(import.meta.url)) : '';
 const localXdgOpenPath = path$1.join(__dirname$1, 'xdg-open');
 
 const {platform, arch} = process$1;
 
-/**
-Get the default browser name in Windows from WSL.
+const tryEachApp = async (apps, opener) => {
+	if (apps.length === 0) {
+		// No app was provided
+		return;
+	}
 
-@returns {Promise<string>} Browser name.
-*/
-async function getWindowsDefaultBrowserFromWsl() {
-	const powershellPath = await powerShellPath();
-	const rawCommand = String.raw`(Get-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\http\UserChoice").ProgId`;
-	const encodedCommand = Buffer$1.from(rawCommand, 'utf16le').toString('base64');
+	const errors = [];
 
-	const {stdout} = await execFile(
-		powershellPath,
-		[
-			'-NoProfile',
-			'-NonInteractive',
-			'-ExecutionPolicy',
-			'Bypass',
-			'-EncodedCommand',
-			encodedCommand,
-		],
-		{encoding: 'utf8'},
-	);
-
-	const progId = stdout.trim();
-
-	// Map ProgId to browser IDs
-	const browserMap = {
-		ChromeHTML: 'com.google.chrome',
-		BraveHTML: 'com.brave.Browser',
-		MSEdgeHTM: 'com.microsoft.edge',
-		FirefoxURL: 'org.mozilla.firefox',
-	};
-
-	return browserMap[progId] ? {id: browserMap[progId]} : {};
-}
-
-const pTryEach = async (array, mapper) => {
-	let latestError;
-
-	for (const item of array) {
+	for (const app of apps) {
 		try {
-			return await mapper(item); // eslint-disable-line no-await-in-loop
+			return await opener(app); // eslint-disable-line no-await-in-loop
 		} catch (error) {
-			latestError = error;
+			errors.push(error);
 		}
 	}
 
-	throw latestError;
+	throw new AggregateError(errors, 'Failed to open in all supported apps');
 };
 
 // eslint-disable-next-line complexity
@@ -61221,10 +61887,14 @@ const baseOpen = async options => {
 		...options,
 	};
 
+	const isFallbackAttempt = options[fallbackAttemptSymbol] === true;
+	delete options[fallbackAttemptSymbol];
+
 	if (Array.isArray(options.app)) {
-		return pTryEach(options.app, singleApp => baseOpen({
+		return tryEachApp(options.app, singleApp => baseOpen({
 			...options,
 			app: singleApp,
+			[fallbackAttemptSymbol]: true,
 		}));
 	}
 
@@ -61232,27 +61902,30 @@ const baseOpen = async options => {
 	appArguments = [...appArguments];
 
 	if (Array.isArray(app)) {
-		return pTryEach(app, appName => baseOpen({
+		return tryEachApp(app, appName => baseOpen({
 			...options,
 			app: {
 				name: appName,
 				arguments: appArguments,
 			},
+			[fallbackAttemptSymbol]: true,
 		}));
 	}
 
 	if (app === 'browser' || app === 'browserPrivate') {
-		// IDs from default-browser for macOS and windows are the same
+		// IDs from default-browser for macOS and windows are the same.
+		// IDs are lowercased to increase chances of a match.
 		const ids = {
 			'com.google.chrome': 'chrome',
 			'google-chrome.desktop': 'chrome',
-			'com.brave.Browser': 'brave',
+			'com.brave.browser': 'brave',
 			'org.mozilla.firefox': 'firefox',
 			'firefox.desktop': 'firefox',
 			'com.microsoft.msedge': 'edge',
 			'com.microsoft.edge': 'edge',
 			'com.microsoft.edgemac': 'edge',
 			'microsoft-edge.desktop': 'edge',
+			'com.apple.safari': 'safari',
 		};
 
 		// Incognito flags for each browser in `apps`.
@@ -61261,13 +61934,28 @@ const baseOpen = async options => {
 			brave: '--incognito',
 			firefox: '--private-window',
 			edge: '--inPrivate',
+			// Safari doesn't support private mode via command line
 		};
 
-		const browser = isWsl$1 ? await getWindowsDefaultBrowserFromWsl() : await defaultBrowser();
-		if (browser.id in ids) {
-			const browserName = ids[browser.id];
+		let browser;
+		if (isWsl$1) {
+			const progId = await wslDefaultBrowser();
+			const browserInfo = _windowsBrowserProgIdMap.get(progId);
+			browser = browserInfo ?? {};
+		} else {
+			browser = await defaultBrowser();
+		}
+
+		const browserId = browser.id?.toLowerCase();
+		if (Object.hasOwn(ids, browserId)) {
+			const browserName = ids[browserId];
 
 			if (app === 'browserPrivate') {
+				// Safari doesn't support private mode via command line
+				if (browserName === 'safari') {
+					throw new Error('Safari doesn\'t support opening in private mode via command line');
+				}
+
 				appArguments.push(flags[browserName]);
 			}
 
@@ -61287,6 +61975,14 @@ const baseOpen = async options => {
 	const cliArguments = [];
 	const childProcessOptions = {};
 
+	// Determine if we should use Windows/PowerShell behavior in WSL.
+	// We only use Windows integration if PowerShell is actually accessible.
+	// This allows the package to work in sandboxed WSL environments where Windows access is restricted.
+	let shouldUseWindowsInWsl = false;
+	if (isWsl$1 && !isInsideContainer() && !isInSsh && !app) {
+		shouldUseWindowsInWsl = await canAccessPowerShell();
+	}
+
 	if (platform === 'darwin') {
 		command = 'open';
 
@@ -61305,45 +62001,53 @@ const baseOpen = async options => {
 		if (app) {
 			cliArguments.push('-a', app);
 		}
-	} else if (platform === 'win32' || (isWsl$1 && !isInsideContainer() && !app)) {
+	} else if (platform === 'win32' || shouldUseWindowsInWsl) {
 		command = await powerShellPath();
 
-		cliArguments.push(
-			'-NoProfile',
-			'-NonInteractive',
-			'-ExecutionPolicy',
-			'Bypass',
-			'-EncodedCommand',
-		);
+		cliArguments.push(...executePowerShell.argumentsPrefix);
 
 		if (!isWsl$1) {
 			childProcessOptions.windowsVerbatimArguments = true;
 		}
 
-		const encodedArguments = ['Start'];
+		// Convert WSL Linux paths to Windows paths
+		if (isWsl$1 && options.target) {
+			options.target = await convertWslPathToWindows(options.target);
+		}
+
+		// Suppress PowerShell progress messages that are written to stderr
+		const encodedArguments = ['$ProgressPreference = \'SilentlyContinue\';', 'Start'];
 
 		if (options.wait) {
 			encodedArguments.push('-Wait');
 		}
 
 		if (app) {
-			// Double quote with double quotes to ensure the inner quotes are passed through.
-			// Inner quotes are delimited for PowerShell interpretation with backticks.
-			encodedArguments.push(`"\`"${app}\`""`);
+			encodedArguments.push(executePowerShell.escapeArgument(app));
 			if (options.target) {
 				appArguments.push(options.target);
 			}
 		} else if (options.target) {
-			encodedArguments.push(`"${options.target}"`);
+			encodedArguments.push(executePowerShell.escapeArgument(options.target));
 		}
 
 		if (appArguments.length > 0) {
-			appArguments = appArguments.map(argument => `"\`"${argument}\`""`);
+			appArguments = appArguments.map(argument => executePowerShell.escapeArgument(argument));
 			encodedArguments.push('-ArgumentList', appArguments.join(','));
 		}
 
 		// Using Base64-encoded command, accepted by PowerShell, to allow special characters.
-		options.target = Buffer$1.from(encodedArguments.join(' '), 'utf16le').toString('base64');
+		options.target = executePowerShell.encodeCommand(encodedArguments.join(' '));
+
+		if (!options.wait) {
+			// PowerShell will keep the parent process alive unless stdio is ignored.
+			childProcessOptions.stdio = 'ignore';
+		}
+
+		if (isWsl$1) {
+			// The spawned Windows process inherits the Linux working directory, which WSL exposes to Windows as a `\\wsl.localhost\…` UNC path served by the distro's default user, so a directory that user cannot traverse makes the launch fail. PowerShell's own directory is on the Windows drive, so it always resolves to a plain `C:\…` path. Nothing here uses the working directory as the target is a URL or an absolute Windows path.
+			childProcessOptions.cwd = path$1.dirname(command);
+		}
 	} else {
 		if (app) {
 			command = app;
@@ -61379,7 +62083,11 @@ const baseOpen = async options => {
 		cliArguments.push('--args', ...appArguments);
 	}
 
-	// This has to come after `--args`.
+	// IMPORTANT: On macOS, the target MUST come AFTER '--args'.
+	// When using --args, ALL following arguments are passed to the app.
+	// Example: open -a "chrome" --args --incognito https://site.com
+	// This passes BOTH --incognito AND https://site.com to Chrome.
+	// Without this order, Chrome won't open in incognito. See #332.
 	if (options.target) {
 		cliArguments.push(options.target);
 	}
@@ -61391,7 +62099,7 @@ const baseOpen = async options => {
 			subprocess.once('error', reject);
 
 			subprocess.once('close', exitCode => {
-				if (!options.allowNonzeroExitCode && exitCode > 0) {
+				if (!options.allowNonzeroExitCode && exitCode !== 0) {
 					reject(new Error(`Exited with code ${exitCode}`));
 					return;
 				}
@@ -61401,9 +62109,54 @@ const baseOpen = async options => {
 		});
 	}
 
+	// When we're in a fallback attempt, we need to detect launch failures before trying the next app.
+	// Wait for the close event to check the exit code before unreffing.
+	// The launcher (open/xdg-open/PowerShell) exits quickly (~10-30ms) even on success.
+
+	/*
+	The PowerShell launcher must ALWAYS be awaited until it closes, even when not waiting for the app. Do not change this to resolve on `spawn`. See #367.
+
+	PowerShell needs a few hundred milliseconds before it runs `Start-Process`, and libuv puts non-detached children in a job object that kills them when the parent exits. So a CLI that exits right after `await open()` silently kills PowerShell before anything opens. The launched app itself survives, since the job object allows breakaway for grandchildren, and `Start-Process` returns as soon as it has launched the app, so this does not wait for the app.
+
+	Before v11, piped stdio kept the parent alive until PowerShell exited, which hid this. Detaching the launcher instead is unverified (PowerShell would get no console), while waiting is what worked before.
+	*/
+	if (isFallbackAttempt || platform === 'win32' || shouldUseWindowsInWsl) {
+		return new Promise((resolve, reject) => {
+			subprocess.once('error', reject);
+
+			subprocess.once('spawn', () => {
+				// Keep error handler active for post-spawn errors
+				subprocess.once('close', exitCode => {
+					subprocess.off('error', reject);
+
+					// Only fallback attempts check the exit code, to detect a missing app. Other launches never do when not waiting for the app.
+					if (isFallbackAttempt && exitCode !== 0) {
+						reject(new Error(`Exited with code ${exitCode}`));
+						return;
+					}
+
+					subprocess.unref();
+					resolve(subprocess);
+				});
+			});
+		});
+	}
+
 	subprocess.unref();
 
-	return subprocess;
+	// Handle spawn errors before the caller can attach listeners.
+	// This prevents unhandled error events from crashing the process.
+	return new Promise((resolve, reject) => {
+		subprocess.once('error', reject);
+
+		// Wait for the subprocess to spawn before resolving.
+		// This ensures the process is established before the caller continues,
+		// preventing issues when process.exit() is called immediately after.
+		subprocess.once('spawn', () => {
+			subprocess.off('error', reject);
+			resolve(subprocess);
+		});
+	});
 };
 
 const open = (target, options) => {
@@ -61450,7 +62203,7 @@ function detectArchBinary(binary) {
 	return archBinary;
 }
 
-function detectPlatformBinary({[platform]: platformBinary}, {wsl}) {
+function detectPlatformBinary({[platform]: platformBinary}, {wsl} = {}) {
 	if (wsl && isWsl$1) {
 		return detectArchBinary(wsl);
 	}
@@ -61462,12 +62215,16 @@ function detectPlatformBinary({[platform]: platformBinary}, {wsl}) {
 	return detectArchBinary(platformBinary);
 }
 
-const apps = {};
+const apps = {
+	browser: 'browser',
+	browserPrivate: 'browserPrivate',
+};
 
 defineLazyProperty(apps, 'chrome', () => detectPlatformBinary({
 	darwin: 'google chrome',
 	win32: 'chrome',
-	linux: ['google-chrome', 'google-chrome-stable', 'chromium'],
+	// `chromium-browser` is the older deb package name used by Ubuntu/Debian before snap.
+	linux: ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser'],
 }, {
 	wsl: {
 		ia32: '/mnt/c/Program Files (x86)/Google/Chrome/Application/chrome.exe',
@@ -61502,9 +62259,9 @@ defineLazyProperty(apps, 'edge', () => detectPlatformBinary({
 	wsl: '/mnt/c/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
 }));
 
-defineLazyProperty(apps, 'browser', () => 'browser');
-
-defineLazyProperty(apps, 'browserPrivate', () => 'browserPrivate');
+defineLazyProperty(apps, 'safari', () => detectPlatformBinary({
+	darwin: 'Safari',
+}));
 
 var index = /*#__PURE__*/Object.freeze({
     __proto__: null,
