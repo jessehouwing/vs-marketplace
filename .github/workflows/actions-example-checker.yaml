@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@v2.22.1
+        uses: step-security/harden-runner@v2.22.2
         with:
           egress-policy: audit
 
@@ -29,7 +29,7 @@ jobs:
             **/action.schema.yml
             **/*.md
           sparse-checkout-cone-mode: false
-      - uses: jessehouwing/actions-example-checker@v0.0.11
+      - uses: jessehouwing/actions-example-checker@v0.0.12
         with:
           docs-pattern: |
             **/*.md
