@@ -1,7 +1,7 @@
 {
   "name": "vs-marketplace",
   "version": "6.0.0",
-  "packageManager": "npm@11.6.1",
+  "packageManager": "npm@12.2.3",
   "description": "Visual Studio Marketplace Extension Publishing",
   "repository": {
     "type": "git",
